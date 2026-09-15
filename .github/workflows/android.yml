@@ -1,71 +1,49 @@
-name: Build Android APK
+name: Build Flet Android APK
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
     steps:
+      # 1. Клонируем код вашего проекта
       - uses: actions/checkout@v4
 
+      # 2. Настраиваем Java (критически важно для компиляции Android)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
+      # 3. ОФИЦИАЛЬНОЕ ДЕЙСТВИЕ GOOGLE: Автоматически разворачивает Android SDK и принимает все лицензии!
+      - name: Setup Android SDK and Accept Licenses
+        uses: android-actions/setup-android@v3
+        with:
+          log-accepted-licenses: true
+
+      # 4. Настраиваем Python
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # Устанавливаем базовые системные утилиты сборки Linux
-      - name: Install Buildozer and Dependencies
+      # 5. Устанавливаем зависимости (используем стабильный релиз Flet 1.0.0)
+      - name: Install Python Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev cmake gcc g++ aidl
           python -m pip install --upgrade pip
-          pip install buildozer
+          pip install flet==1.0.0 pandas openpyxl pycryptodome reportlab
 
-      # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Скачиваем официальный портативный пакет cmdline-tools от Google
-      # и собираем структуру, которую Buildozer примет за свою «родную»
-      - name: Download and Setup Portable Android SDK
+      # 6. Запускаем нативную сборку Flet — теперь она увидит идеальный, лицензированный SDK от Google
+      - name: Build Android APK
         run: |
-          # 1. Создаем правильную структуру папок в домашней директории пользователя
-          mkdir -p ~/android-sdk/cmdline-tools/
-          mkdir -p ~/android-sdk/tools/bin/
-          
-          # 2. Скачиваем официальный стабильный cmdline-tools от Google
-          wget -q https://google.com
-          unzip -q commandlinetools-linux-9477386_latest.zip -d ~/android-sdk/cmdline-tools/
-          rm commandlinetools-linux-9477386_latest.zip
-          
-          # 3. Переименовываем внутреннюю папку, как того требуют новые стандарты Google
-          mv ~/android-sdk/cmdline-tools/cmdline-tools ~/android-sdk/cmdline-tools/latest
-          
-          # 4. Создаем виртуальный мост-ссылку для Buildozer в папку tools/bin/
-          ln -s ~/android-sdk/cmdline-tools/latest/bin/sdkmanager ~/android-sdk/tools/bin/sdkmanager
-          
-          # 5. Принудительно одобряем все лицензии Android
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          yes | ~/android-sdk/tools/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses || true
-          
-          # 6. Жестко прописываем путь к этому созданному SDK в файл настроек buildozer.spec
-          echo -e "\nandroid.sdk_path = /home/runner/android-sdk" >> buildozer.spec
-          echo -e "android.ndk_path = " >> buildozer.spec
-          echo "Портативный SDK успешно развернут и интегрирован!"
+          flet build apk --yes
 
-      # Запускаем сборку — теперь Buildozer найдет sdkmanager в папке /home/runner/android-sdk/tools/bin/sdkmanager
-      - name: Build with Buildozer
-        run: |
-          buildozer android debug
-
-      # Выгружаем готовый .apk в артефакты репозитория
+      # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Test-OB-App
-          path: bin/*.apk
+          path: build/apk/*.apk
