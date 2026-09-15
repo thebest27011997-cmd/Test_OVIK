@@ -30,11 +30,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем зависимости. Из списка pip убран несуществующий serious_python
+      # 5. Устанавливаем зависимости. Сюда добавлен pyinstaller для успешной работы flet pack!
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pandas openpyxl cryptography reportlab flet
+          python3 -m pip install pandas openpyxl cryptography reportlab flet pyinstaller
 
       # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер вручную в чистой папке
       - name: Bootstrap Native Flutter Project and Inject Python Code
@@ -59,7 +59,7 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # ИСПРАВЛЕНИЕ: Используем официальный упаковщик flet pack для жесткой сшивки библиотек в APK
+          # Используем официальный упаковщик flet pack — теперь pyinstaller установлен и команда сработает без ошибок
           flet pack app/main.py
           
           # Регистрируем полученный зашифрованный архив с кодом в манифесте Flutter (pubspec.yaml)
@@ -68,7 +68,7 @@ jobs:
           # Автоматически принимаем все системные лицензии Android Google
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           
-          # Запускаем прямую нативную компиляцию APK без компиляционных багов flet-cli
+          # Запускаем прямую нативную компиляцию APK
           flutter build apk --release
 
       # 7. Выгружаем готовый, защищенный мобильный комплекс в артефакты GitHub
