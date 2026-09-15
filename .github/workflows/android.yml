@@ -47,26 +47,28 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 8. КРИТИЧЕСКИЙ ШАГ: Создаем нативный Flutter-шаблон приложения вручную, 
-      # перенося туда ваш Python-код и ассеты, исключая баги flet-cli
+      # 8. СТРОГИЙ ПЕРЕНОС: Создаем шаблон приложения и принудительно заменяем дефолтный счетчик вашим кодом
       - name: Bootstrap and Build Native Android Package
         run: |
-          # Создаем чистый проект Flet
+          # Создаем чистый эталонный проект Flet
           flet create tmp_app
           
-          # Копируем ваши файлы внутрь созданного шаблона
-          cp main.py tmp_app/
-          cp screens.py tmp_app/
-          cp data_manager.py tmp_app/
-          cp config.py tmp_app/
-          cp config.json tmp_app/ || true
-          cp -r assets tmp_app/
+          # Заменяем дефолтный main.py в папке src вашим основным файлом кода
+          cp main.py tmp_app/src/main.py
           
-          # Переходим в созданный проект и собираем APK нативным образом через Flutter
+          # Копируем остальные связанные скрипты тестирования внутрь папки src
+          cp screens.py tmp_app/src/
+          cp data_manager.py tmp_app/src/
+          cp config.py tmp_app/src/
+          cp config.json tmp_app/src/ || true
+          
+          # Копируем зашифрованные вопросы .dat и шрифты внутрь папки src/assets
+          mkdir -p tmp_app/src/assets
+          cp -r assets/* tmp_app/src/assets/
+          
+          # Переходим в созданный проект и запускаем сборку
           cd tmp_app
           flutter config --no-enable-linux-desktop
-          
-          # Запуск сборки
           flet build apk --yes --python-version 3.12
 
       # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
