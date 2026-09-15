@@ -18,7 +18,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Разворачиваем чистый официальный Flutter SDK от Google (без багов Flet)
+      # 3. Разворачиваем чистый официальный Flutter SDK от Google
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
@@ -30,11 +30,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем утилиту пакования мобильных Python-сред (serious_python)
+      # 5. Устанавливаем утилиту пакования мобильных Python-сред напрямую в текущую среду
       - name: Install Python Package Bundler
         run: |
-          python -m pip install --upgrade pip
-          pip install pandas openpyxl cryptography reportlab flet
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pandas openpyxl cryptography reportlab flet serious_python
 
       # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер вручную в чистой папке
       - name: Bootstrap Native Flutter Project and Inject Python Code
@@ -59,9 +59,8 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # ЖЕСТКАЯ СШИВКА БИБЛИОТЕК: Пакуем pandas и cryptography прямо в бинарный ассет Flutter
-          # Этот шаг гарантирует, что на телефоне никогда не вылетит ModuleNotFoundError!
-          python -m serious_python package app/main.py
+          # ЖЕСТКАЯ СШИВКА БИБЛИОТЕК через принудительный вызов текущего интерпретатора
+          python3 -m serious_python package app/main.py
           
           # Регистрируем полученный зашифрованный архив с кодом в манифесте Flutter (pubspec.yaml)
           sed -i '/assets:/a \    - app-package.zip' pubspec.yaml
@@ -69,7 +68,7 @@ jobs:
           # Автоматически принимаем все системные лицензии Android Google
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           
-          # Запускаем прямую нативную компиляцию APK без посредников в чистом окружении
+          # Запускаем прямую нативную компиляцию APK без компиляционных багов flet-cli
           flutter build apk --release
 
       # 7. Выгружаем готовый, защищенный мобильный комплекс в артефакты GitHub
