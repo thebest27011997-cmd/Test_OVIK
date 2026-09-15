@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Устанавливаем все зависимости. Из pip убран cython — buildozer установит его сам автоматически!
+      # Устанавливаем зависимости и полноценные инструменты Android SDK для Linux
       - name: Install Buildozer and Linux Android SDK
         run: |
           sudo apt-get update
@@ -29,18 +29,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install buildozer
 
-      # Создаем для Buildozer структуру папок и связываем её с системным sdkmanager
-      - name: Force Link System SDK to Buildozer Path
+      # Одобряем все лицензии Google в системном SDK Linux
+      - name: Accept Android SDK Licenses
         run: |
-          mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin/
-          ln -s /usr/bin/sdkmanager ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager || true
-          
-          # Одобряем все лицензии Google в системном SDK
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
           yes | /usr/bin/sdkmanager --licenses || true
-          yes | ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses || true
 
+      # КРИТИЧЕСКИЙ ШАГ: Жестко прописываем в buildozer.spec пути к готовому системному SDK,
+      # чтобы Buildozer не создавал свои папки и не стирал наши ссылки!
+      - name: Inject System SDK Paths into Buildozer Spec
+        run: |
+          # Создаем структуру папок, которую требует внутренняя логика Buildozer
+          mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin/
+          ln -s /usr/bin/sdkmanager ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager || true
+          
+          # Принудительно дописываем параметры путей в конец файла buildozer.spec
+          echo -e "\nandroid.sdk_path = /usr/lib/android-sdk" >> buildozer.spec
+          echo -e "android.ndk_path = " >> buildozer.spec
+          echo "Системные пути успешно интегрированы в конфигурацию!"
+
+      # Запускаем сборку — теперь Buildozer возьмет готовый системный sdkmanager по указанному пути
       - name: Build with Buildozer
         run: |
           buildozer android debug
