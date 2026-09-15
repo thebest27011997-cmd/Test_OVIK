@@ -8,20 +8,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      # 1. Клонируем ваш код из репозитория
       - uses: actions/checkout@v4
 
-      # 2. Используем официальное готовое действие Flet для сборки Android
-      # Оно само автоматически развернет Flutter SDK, Android SDK, Java и настроит пути
       - name: Flet Android Build Action
         uses: flet-dev/flet-build-action@v1
         with:
           target: apk
-          python-version: '3.11'
-
-      # 3. Сохраняем готовый скомпилированный APK в артефакты
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Test-OVIK-App
-          path: build/apk/*.apk
