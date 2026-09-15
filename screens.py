@@ -8,11 +8,13 @@ import hashlib
 import pandas as pd
 import flet as ft
 
-# Стандартный проверенный импорт для версии 0.21.0
-from flet import (
+# Новый стандарт импорта компонентов для Flet 1.0.0 и новее
+from flet.controls import (
     Column, Row, Container, Text, TextField, ElevatedButton, 
-    TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog, MainAxisAlignment, CrossAxisAlignment
+    TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog
 )
+# Импорт констант выравнивания по новой структуре
+from flet.controls.constants import MainAxisAlignment, CrossAxisAlignment
 
 # Импорт криптографии напрямую в интерфейс (100% стабильность в APK)
 from Crypto.Cipher import AES
