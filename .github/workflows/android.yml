@@ -21,22 +21,18 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Устанавливаем все зависимости, включая официальные инструменты Android SDK для Ubuntu (sdkmanager)
+      # Устанавливаем все зависимости. Из pip убран cython — buildozer установит его сам автоматически!
       - name: Install Buildozer and Linux Android SDK
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev cmake gcc g++ aidl android-sdk
-          pip install --upgrade pip
-          pip install buildozer cython
+          python -m pip install --upgrade pip
+          pip install buildozer
 
-      # ЖЕСТКОЕ ИСПРАВЛЕНИЕ ПУТЕЙ: Создаем для Buildozer структуру папок, которую он требует,
-      # и связываем её с системным, рабочим sdkmanager из Linux Ubuntu
+      # Создаем для Buildozer структуру папок и связываем её с системным sdkmanager
       - name: Force Link System SDK to Buildozer Path
         run: |
-          # Создаем физический путь, куда заглядывает компилятор
           mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin/
-          
-          # Делаем прямую ссылку на рабочий системный sdkmanager
           ln -s /usr/bin/sdkmanager ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager || true
           
           # Одобряем все лицензии Google в системном SDK
