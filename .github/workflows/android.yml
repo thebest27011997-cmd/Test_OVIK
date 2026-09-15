@@ -1,16 +1,49 @@
-name: Flet Android Build
+name: Build Flet Android APK
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     steps:
+      # 1. Клонируем код проекта
       - uses: actions/checkout@v4
 
-      - name: Flet Android Build Action
-        uses: flet-dev/flet-build-action@v1
+      # 2. Устанавливаем стабильное окружение Java
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          target: apk
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. Устанавливаем стабильный Flutter SDK (движок для сборки)
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # 4. Настраиваем Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 5. Устанавливаем зависимости из вашего pyproject.toml
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flet pandas openpyxl pycryptodome reportlab
+
+      # 6. Запускаем нативную сборку без посредников
+      - name: Build Android APK
+        run: |
+          flet build apk
+
+      # 7. Выгружаем готовый .apk в артефакты репозитория
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test-OVIK-Android-App
+          path: build/apk/*.apk
