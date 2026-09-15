@@ -18,35 +18,37 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Настраиваем Python
+      # 3. Настраиваем стабильный Flutter SDK в системе (чтобы команда flutter была доступна сразу)
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # 4. Настраиваем Python
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 4. Устанавливаем зависимости из вашего pyproject.toml
+      # 5. Устанавливаем зависимости из вашего pyproject.toml
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flet==1.0.0 pandas openpyxl pycryptodome reportlab
 
-      # 5. Принимаем лицензии и докачиваем платформы Android 34 и инструменты сборки
+      # 6. Принимаем лицензии и докачиваем платформы Android 34 и инструменты сборки
       - name: Install Missing Android SDK Components & Accept Licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 6. КРИТИЧЕСКИЙ ШАГ: Отключаем сборку под Linux Desktop во Flutter, чтобы Doctor не требовал GTK-библиотеки
-      - name: Disable Linux Desktop Support in Flutter
+      # 7. Отключаем десктопную сборку и запускаем компиляцию строго под Android APK
+      - name: Build Android APK
         run: |
           flutter config --no-enable-linux-desktop
           flutter config --no-enable-windows-desktop
           flutter config --no-enable-macos-desktop
-
-      # 7. Запускаем целевую сборку строго под Android APK
-      - name: Build Android APK
-        run: |
           flet build apk --yes
 
       # 8. Выгружаем готовый рабочий .apk в артефакты репозитория
