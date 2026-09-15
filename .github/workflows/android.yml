@@ -11,32 +11,31 @@ jobs:
       # 1. Клонируем код вашего проекта
       - uses: actions/checkout@v4
 
-      # 2. Настраиваем Java (критически важно для компиляции Android)
+      # 2. Настраиваем Java 17 (требуется для компиляции Android)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. ОФИЦИАЛЬНОЕ ДЕЙСТВИЕ GOOGLE: Автоматически разворачивает Android SDK и принимает все лицензии!
-      - name: Setup Android SDK and Accept Licenses
-        uses: android-actions/setup-android@v3
-        with:
-          log-accepted-licenses: true
-
-      # 4. Настраиваем Python
+      # 3. Настраиваем Python
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 5. Устанавливаем зависимости (используем стабильный релиз Flet 1.0.0)
+      # 4. Устанавливаем зависимости из вашего pyproject.toml
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flet==1.0.0 pandas openpyxl pycryptodome reportlab
 
-      # 6. Запускаем нативную сборку Flet — теперь она увидит идеальный, лицензированный SDK от Google
+      # 5. КРИТИЧЕСКИЙ ШАГ: Автоматически принимаем встроенные на сервере лицензии Android
+      - name: Accept Pre-installed Android SDK Licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      # 6. Запускаем нативную сборку Flet — теперь она увидит встроенный лицензированный SDK
       - name: Build Android APK
         run: |
           flet build apk --yes
