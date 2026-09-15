@@ -24,34 +24,49 @@ jobs:
         with:
           channel: 'stable'
 
-      # 4. Настраиваем Python 3.12 (Идеальная версия для Flet 1.0 и библиотек)
+      # 4. Настраиваем Python 3.12
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем критические библиотеки Linux для проверки Flutter Doctor
+      # 5. Устанавливаем критические библиотеки Linux для проверки
       - name: Install Linux GTK Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev ninja-build
 
-      # 6. Устанавливаем зависимости из вашего pyproject.toml
+      # 6. Устанавливаем зависимости из вашего requirements.txt
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flet==1.0.0 pandas openpyxl pycryptodome reportlab
+          pip install flet pandas openpyxl pycryptodome reportlab
 
-      # 7. Принимаем лицензии и докачиваем платформы Android 34 и инструменты сборки
-      - name: Install Missing Android SDK Components & Accept Licenses
+      # 7. Принимаем лицензии Android
+      - name: Accept Android SDK Licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 8. Запускаем сборку — теперь Flet принудительно возьмет стабильный Python 3.12 для APK
-      - name: Build Android APK
+      # 8. КРИТИЧЕСКИЙ ШАГ: Создаем нативный Flutter-шаблон приложения вручную, 
+      # перенося туда ваш Python-код и ассеты, исключая баги flet-cli
+      - name: Bootstrap and Build Native Android Package
         run: |
+          # Создаем чистый проект Flet
+          flet create tmp_app
+          
+          # Копируем ваши файлы внутрь созданного шаблона
+          cp main.py tmp_app/
+          cp screens.py tmp_app/
+          cp data_manager.py tmp_app/
+          cp config.py tmp_app/
+          cp config.json tmp_app/ || true
+          cp -r assets tmp_app/
+          
+          # Переходим в созданный проект и собираем APK нативным образом через Flutter
+          cd tmp_app
+          flutter config --no-enable-linux-desktop
+          
+          # Запуск сборки
           flet build apk --yes --python-version 3.12
 
       # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
@@ -59,4 +74,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Test-OB-App
-          path: build/apk/*.apk
+          path: tmp_app/build/apk/*.apk
