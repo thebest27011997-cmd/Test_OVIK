@@ -8,11 +8,33 @@ import hashlib
 import pandas as pd
 import flet as ft
 
-# Явный импорт компонентов для совместимости с новыми версиями Flet
-from flet import (
-    Column, Row, Container, Text, TextField, ElevatedButton, 
-    TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog, MainAxisAlignment, CrossAxisAlignment
-)
+# УНИВЕРСАЛЬНЫЙ СИСТЕМА ИМПОРТА КОМПОНЕНТОВ ДЛЯ 100% КРОСС-ВЕРСИОННОСТИ
+try:
+    # 1. Пробуем импортировать из flet.controls (Новый мобильный стандарт в APK)
+    from flet.controls import (
+        Column, Row, Container, Text, TextField, ElevatedButton, 
+        TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog
+    )
+    # Выравнивание в новых версиях часто находится в модуле констант или берется строками
+    try:
+        from flet.controls.constants import MainAxisAlignment, CrossAxisAlignment
+    except (ImportError, ModuleNotFoundError):
+        MainAxisAlignment = ft.MainAxisAlignment
+        CrossAxisAlignment = ft.CrossAxisAlignment
+except (ImportError, ModuleNotFoundError):
+    try:
+        # 2. Резервный вариант: импорт напрямую из корня flet (Для ПК разработчика)
+        from flet import (
+            Column, Row, Container, Text, TextField, ElevatedButton, 
+            TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog, MainAxisAlignment, CrossAxisAlignment
+        )
+    except (ImportError, ModuleNotFoundError):
+        # 3. Аварийный вариант (Динамическое сопоставление через атрибуты)
+        Column, Row, Container = ft.Column, ft.Row, ft.Container
+        Text, TextField, ElevatedButton = ft.Text, ft.TextField, ft.ElevatedButton
+        TextButton, RadioGroup, Radio = ft.TextButton, ft.RadioGroup, ft.Radio
+        Checkbox, SnackBar, AlertDialog = ft.Checkbox, ft.SnackBar, ft.AlertDialog
+        MainAxisAlignment, CrossAxisAlignment = ft.MainAxisAlignment, ft.CrossAxisAlignment
 
 # Импорт криптографии напрямую в интерфейс (100% стабильность в APK)
 from Crypto.Cipher import AES
@@ -41,14 +63,16 @@ def local_decrypt_and_load_questions():
         return []
 
     for f in files_in_dir:
+        # ФИЛЬТР АДМИНИСТРАТОРА: Если админ выбрал конкретные источники, игнорируем остальные файлы
         if hasattr(config, "SELECTED_SOURCES") and config.SELECTED_SOURCES:
             if f not in config.SELECTED_SOURCES:
-                continue
+                continue  # Пропускаем файл, если он не отмечен админом
                 
         file_path = os.path.join(embedded_questions_dir, f)
         
         if f.lower().endswith(".dat"):
             try:
+                # 1. Расшифровка
                 key = hashlib.sha256(crypto_password.encode('utf-8')).digest()
                 with open(file_path, 'rb') as file_bytes:
                     iv = file_bytes.read(16)
@@ -58,9 +82,11 @@ def local_decrypt_and_load_questions():
                 pad_len = plaintext[-1]
                 plaintext = plaintext[:-pad_len]
                 
+                # 2. Передача в pandas байтового потока
                 stream = io.BytesIO(plaintext)
                 df = pd.read_excel(stream, engine='openpyxl')
                 
+                # 3. Парсинг строк
                 for _, row in df.iterrows():
                     q_text = str(row["вопрос"]).strip()
                     q_type = str(row["тип вопроса"]).strip().lower()
@@ -78,6 +104,7 @@ def local_decrypt_and_load_questions():
             except Exception as e:
                 print(f"Ошибка дешифрования защищенного файла {f}: {e}")
                 
+        # Если случайно остался исходный .xlsx на ПК, читаем его без криптографии
         elif f.lower().endswith(".xlsx") and embedded_questions_dir == "questions":
             try:
                 df = pd.read_excel(file_path)
