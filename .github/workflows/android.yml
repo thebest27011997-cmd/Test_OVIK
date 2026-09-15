@@ -36,23 +36,25 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер в изолированной папке
+      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер в изолированной папке src
       - name: Bootstrap Native Flutter Project and Inject Python Code
         run: |
-          # Создаем пустой классический Flet-проект
+          # Создаем чистый эталонный проект Flet
           flet create tmp_app
           
-          # Копируем ваши скрипты в корень созданного проекта
-          cp main.py tmp_app/main.py
-          cp screens.py tmp_app/
-          cp data_manager.py tmp_app/
-          cp config.py tmp_app/
+          # КРИТИЧЕСКИЙ ШАГ: Перезаписываем дефолтный main.py (счетчик) вашим основным файлом кода в папке src!
+          cp main.py tmp_app/src/main.py
           
-          # Копируем ассеты (вопросы .dat и шрифты)
-          mkdir -p tmp_app/assets
-          cp -r assets/* tmp_app/assets/
+          # Копируем остальные связанные скрипты тестирования внутрь папки src
+          cp screens.py tmp_app/src/
+          cp data_manager.py tmp_app/src/
+          cp config.py tmp_app/src/
           
-          # Перезаписываем внутренний config.json для жесткой фиксации метаданных и зависимостей в APK
+          # Копируем зашифрованные вопросы .dat и шрифты внутрь папки src/assets
+          mkdir -p tmp_app/src/assets
+          cp -r assets/* tmp_app/src/assets/
+          
+          # Перезаписываем внутренний config.json в корне и в src для жесткой фиксации мобильных зависимостей
           cat << 'EOF' > tmp_app/config.json
           {
             "project_name": "Тест_ОВ",
@@ -65,6 +67,7 @@ jobs:
             ]
           }
           EOF
+          cp tmp_app/config.json tmp_app/src/config.json
           
           # Переходим в папку проекта
           cd tmp_app
@@ -74,7 +77,7 @@ jobs:
           flutter config --no-enable-windows-desktop
           flutter config --no-enable-macos-desktop
           
-          # Запускаем официальную сборку. Она сама упакует файлы и нативно настроит pubspec.yaml без багов разметки
+          # Запускаем официальную сборку (Flet сам прочитает зависимости из config.json и соберет src/main.py)
           flet build apk --yes --python-version 3.12
 
       # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
