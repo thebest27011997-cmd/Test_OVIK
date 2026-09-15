@@ -21,40 +21,44 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Устанавливаем зависимости и инструменты Android SDK для Linux
-      - name: Install Buildozer and Linux Android SDK
+      # Устанавливаем базовые системные утилиты сборки Linux
+      - name: Install Buildozer and Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev cmake gcc g++ aidl android-sdk
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev cmake gcc g++ aidl
           python -m pip install --upgrade pip
           pip install buildozer
 
-      # Одобряем все лицензии Google в системном SDK Linux
-      - name: Accept Android SDK Licenses
+      # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Скачиваем официальный портативный пакет cmdline-tools от Google
+      # и собираем структуру, которую Buildozer примет за свою «родную»
+      - name: Download and Setup Portable Android SDK
         run: |
+          # 1. Создаем правильную структуру папок в домашней директории пользователя
+          mkdir -p ~/android-sdk/cmdline-tools/
+          mkdir -p ~/android-sdk/tools/bin/
+          
+          # 2. Скачиваем официальный стабильный cmdline-tools от Google
+          wget -q https://google.com
+          unzip -q commandlinetools-linux-9477386_latest.zip -d ~/android-sdk/cmdline-tools/
+          rm commandlinetools-linux-9477386_latest.zip
+          
+          # 3. Переименовываем внутреннюю папку, как того требуют новые стандарты Google
+          mv ~/android-sdk/cmdline-tools/cmdline-tools ~/android-sdk/cmdline-tools/latest
+          
+          # 4. Создаем виртуальный мост-ссылку для Buildozer в папку tools/bin/
+          ln -s ~/android-sdk/cmdline-tools/latest/bin/sdkmanager ~/android-sdk/tools/bin/sdkmanager
+          
+          # 5. Принудительно одобряем все лицензии Android
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
-          yes | /usr/bin/sdkmanager --licenses || true
-
-      # КРИТИЧЕСКИЙ ШАГ: Создаем подпапки tools/bin напрямую внутри /usr/lib/android-sdk,
-      # чтобы Buildozer гарантированно нашел sdkmanager там, где ожидает!
-      - name: Inject System SDK Paths and Structure
-        run: |
-          # Создаем структуру директорий внутри системного SDK с правами sudo
-          sudo mkdir -p /usr/lib/android-sdk/tools/bin/
+          yes | ~/android-sdk/tools/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses || true
           
-          # Создаем символическую ссылку на реальный sdkmanager
-          sudo ln -s /usr/bin/sdkmanager /usr/lib/android-sdk/tools/bin/sdkmanager || true
-          
-          # На всякий случай дублируем одобрение лицензий через созданный путь
-          yes | sudo /usr/lib/android-sdk/tools/bin/sdkmanager --licenses || true
-          
-          # Прописываем путь к этому системному SDK в файл настроек buildozer.spec
-          echo -e "\nandroid.sdk_path = /usr/lib/android-sdk" >> buildozer.spec
+          # 6. Жестко прописываем путь к этому созданному SDK в файл настроек buildozer.spec
+          echo -e "\nandroid.sdk_path = /home/runner/android-sdk" >> buildozer.spec
           echo -e "android.ndk_path = " >> buildozer.spec
-          echo "Структура путей успешно скорректирована!"
+          echo "Портативный SDK успешно развернут и интегрирован!"
 
-      # Запускаем сборку — теперь Buildozer найдет sdkmanager по пути /usr/lib/android-sdk/tools/bin/sdkmanager
+      # Запускаем сборку — теперь Buildozer найдет sdkmanager в папке /home/runner/android-sdk/tools/bin/sdkmanager
       - name: Build with Buildozer
         run: |
           buildozer android debug
