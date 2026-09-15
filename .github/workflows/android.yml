@@ -1,11 +1,11 @@
-name: Build Flet Android APK
+name: Build Android APK
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,17 +21,26 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Dependencies
+      - name: Install Buildozer and Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install flet==1.0.0 pandas openpyxl pycryptodome reportlab
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev cmake gcc g++ aidl
+          pip install --upgrade pip
+          pip install buildozer cython
 
-      - name: Build Android APK
+      # КРИТИЧЕСКИЙ ШАГ: Принудительно принимаем все лицензии Android SDK, чтобы сборка не падала
+      - name: Accept Android SDK Licenses
         run: |
-          flet build apk --yes
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          yes | auth_keys="" sdkmanager --licenses || true
 
-      - name: Upload APK
+      - name: Build with Buildozer
+        run: |
+          buildozer android debug
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Test-OVIK-Android-App
-          path: build/apk/*.apk
+          name: Test-OB-App
+          path: bin/*.apk
