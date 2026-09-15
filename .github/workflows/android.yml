@@ -47,7 +47,7 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 8. СТРОГИЙ ПЕРЕНОС И ИНТЕГРАЦИЯ CONFIG: дублируем конфигурацию для серьезного импорта пакетов в APK
+      # 8. СТРОГИЙ ПЕРЕНОС И ИНЖЕКТИРОВАНИЕ ЗАВИСИМОСТЕЙ: прописываем библиотеки внутри шаблона tmp_app
       - name: Bootstrap and Build Native Android Package
         run: |
           # Создаем чистый эталонный проект Flet
@@ -61,22 +61,45 @@ jobs:
           cp data_manager.py tmp_app/src/
           cp config.py tmp_app/src/
           
-          # КРИТИЧЕСКИЙ ШАГ: Дублируем config.json с зависимостями во все целевые каталоги сборщика
-          cp config.json tmp_app/config.json || true
-          cp config.json tmp_app/src/config.json || true
-          
-          # Копируем requirements.txt прямо в папку src в качестве резервного источника
-          cp requirements.txt tmp_app/src/requirements.txt || true
-          
           # Копируем зашифрованные вопросы .dat и шрифты внутрь папки src/assets
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
-          # Переходим в созданный проект и запускаем сборку
+          # ЖЕСТКАЯ КОРРЕКЦИЯ ДЛЯ SERIOUS_PYTHON:
+          # Принудительно очищаем автосгенерированный pyproject.toml внутри tmp_app 
+          # и записываем туда точный список необходимых для APK мобильных библиотек
+          cat << 'EOF' > tmp_app/pyproject.toml
+          [project]
+          name = "test-ovik-app"
+          version = "1.0.0"
+          dependencies = [
+              "flet==1.0.0",
+              "pandas",
+              "openpyxl",
+              "cryptography",
+              "reportlab"
+          ]
+          EOF
+          
+          # Также перезаписываем внутренний config.json для подстраховки метаданных Flutter
+          cat << 'EOF' > tmp_app/config.json
+          {
+            "project_name": "Тест_ОВ",
+            "org_domain": "org.ovik.testapp",
+            "dependencies": [
+              "pandas",
+              "openpyxl",
+              "cryptography",
+              "reportlab"
+            ]
+          }
+          EOF
+          
+          # Переходим в созданный и полностью настроенный проект и запускаем сборку
           cd tmp_app
           flutter config --no-enable-linux-desktop
           
-          # Запускаем чистую сборку (Flet сам прочитает зависимости из config.json)
+          # Запускаем сборку (теперь flet-cli прочитает настроенный pyproject.toml)
           flet build apk --yes --python-version 3.12
 
       # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
