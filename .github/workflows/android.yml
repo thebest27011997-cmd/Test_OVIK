@@ -11,7 +11,7 @@ jobs:
       # 1. Клонируем исходный код вашего проекта из репозитория
       - uses: actions/checkout@v4
 
-      # 2. Устанавливаем стабильное окружение Java 17 для Android SDK
+      # 2. Настраиваем Java 17 (требуется для компиляции Android)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -30,19 +30,19 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем зависимости. Сюда добавлен нужный для сборки пакетов pyinstaller
+      # 5. Устанавливаем зависимости на сервер сборки
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер в изолированной папке src
+      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер в изолированной папке src с зависимостями
       - name: Bootstrap Native Flutter Project and Inject Python Code
         run: |
           # Создаем чистый эталонный проект Flet
           flet create tmp_app
           
-          # КРИТИЧЕСКИЙ ШАГ: Перезаписываем дефолтный main.py (счетчик) вашим основным файлом кода в папке src!
+          # Перезаписываем дефолтный main.py вашим основным файлом кода в папке src
           cp main.py tmp_app/src/main.py
           
           # Копируем остальные связанные скрипты тестирования внутрь папки src
@@ -50,11 +50,21 @@ jobs:
           cp data_manager.py tmp_app/src/
           cp config.py tmp_app/src/
           
+          # КРИТИЧЕСКИЙ ШАГ ДЛЯ ИСКЛЮЧЕНИЯ MODULENOTFOUNDERROR:
+          # Принудительно создаем файл манифеста строго внутри папки src,
+          # чтобы внутренний движок serious_python вшил эти библиотеки внутрь APK!
+          cat << 'EOF' > tmp_app/src/requirements.txt
+          pandas
+          openpyxl
+          cryptography
+          reportlab
+          EOF
+          
           # Копируем зашифрованные вопросы .dat и шрифты внутрь папки src/assets
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
-          # Перезаписываем внутренний config.json в корне и в src для жесткой фиксации мобильных зависимостей
+          # Перезаписываем внутренний config.json во всех каталогах для подстраховки метаданных
           cat << 'EOF' > tmp_app/config.json
           {
             "project_name": "Тест_ОВ",
@@ -77,7 +87,7 @@ jobs:
           flutter config --no-enable-windows-desktop
           flutter config --no-enable-macos-desktop
           
-          # Запускаем официальную сборку (Flet сам прочитает зависимости из config.json и соберет src/main.py)
+          # Запускаем официальную сборку (flet-cli прочитает созданный src/requirements.txt и вшьет библиотеки)
           flet build apk --yes --python-version 3.12
 
       # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
