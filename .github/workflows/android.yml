@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Устанавливаем зависимости и полноценные инструменты Android SDK для Linux
+      # Устанавливаем зависимости и инструменты Android SDK для Linux
       - name: Install Buildozer and Linux Android SDK
         run: |
           sudo apt-get update
@@ -36,24 +36,30 @@ jobs:
           touch ~/.android/repositories.cfg
           yes | /usr/bin/sdkmanager --licenses || true
 
-      # КРИТИЧЕСКИЙ ШАГ: Жестко прописываем в buildozer.spec пути к готовому системному SDK,
-      # чтобы Buildozer не создавал свои папки и не стирал наши ссылки!
-      - name: Inject System SDK Paths into Buildozer Spec
+      # КРИТИЧЕСКИЙ ШАГ: Создаем подпапки tools/bin напрямую внутри /usr/lib/android-sdk,
+      # чтобы Buildozer гарантированно нашел sdkmanager там, где ожидает!
+      - name: Inject System SDK Paths and Structure
         run: |
-          # Создаем структуру папок, которую требует внутренняя логика Buildozer
-          mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin/
-          ln -s /usr/bin/sdkmanager ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager || true
+          # Создаем структуру директорий внутри системного SDK с правами sudo
+          sudo mkdir -p /usr/lib/android-sdk/tools/bin/
           
-          # Принудительно дописываем параметры путей в конец файла buildozer.spec
+          # Создаем символическую ссылку на реальный sdkmanager
+          sudo ln -s /usr/bin/sdkmanager /usr/lib/android-sdk/tools/bin/sdkmanager || true
+          
+          # На всякий случай дублируем одобрение лицензий через созданный путь
+          yes | sudo /usr/lib/android-sdk/tools/bin/sdkmanager --licenses || true
+          
+          # Прописываем путь к этому системному SDK в файл настроек buildozer.spec
           echo -e "\nandroid.sdk_path = /usr/lib/android-sdk" >> buildozer.spec
           echo -e "android.ndk_path = " >> buildozer.spec
-          echo "Системные пути успешно интегрированы в конфигурацию!"
+          echo "Структура путей успешно скорректирована!"
 
-      # Запускаем сборку — теперь Buildozer возьмет готовый системный sdkmanager по указанному пути
+      # Запускаем сборку — теперь Buildozer найдет sdkmanager по пути /usr/lib/android-sdk/tools/bin/sdkmanager
       - name: Build with Buildozer
         run: |
           buildozer android debug
 
+      # Выгружаем готовый .apk в артефакты репозитория
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
