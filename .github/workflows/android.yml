@@ -1,84 +1,57 @@
-name: Build Flet Android APK
+name: Build Android APK
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
     steps:
-      # 1. Клонируем код вашего проекта
+      # 1. Клонируем код проекта
       - uses: actions/checkout@v4
 
-      # 2. Настраиваем Java 17 (требуется для компиляции Android)
+      # 2. Настраиваем Java 17 (необходима для компиляции Android)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Настраиваем стабильный Flutter SDK в системе
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      # 4. Настраиваем Python 3.12
-      - name: Set up Python 3.12
+      # 3. Настраиваем Python 3.11
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
-      # 5. Устанавливаем критические библиотеки Linux для проверки
-      - name: Install Linux GTK Dependencies
+      # 4. Устанавливаем системные зависимости Linux и компиляторы для C-модулей pycryptodome
+      - name: Install Buildozer and Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev ninja-build
-
-      # 6. Устанавливаем зависимости в глобальное окружение сервера
-      - name: Install Python Dependencies
-        run: |
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev cmake gcc g++ aidl android-sdk
           python -m pip install --upgrade pip
-          pip install flet pandas openpyxl pycryptodome reportlab
+          pip install buildozer==1.5.0
 
-      # 7. Принимаем лицензии Android
+      # 5. Принудительно одобряем все лицензии во избежание интерактивных вопросов
       - name: Accept Android SDK Licenses
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          yes | /usr/bin/sdkmanager --licenses || true
 
-      # 8. СТРОГИЙ ПЕРЕНОС И ИНТЕГРАЦИЯ REQUIREMENTS: переносим список библиотек прямо к коду
-      - name: Bootstrap and Build Native Android Package
+      # 6. КРИТИЧЕСКИЙ ШАГ: Конфигурируем и запускаем сборку — Buildozer сам скачает NDK под pycryptodome
+      - name: Build with Buildozer
         run: |
-          # Создаем чистый эталонный проект Flet
-          flet create tmp_app
+          # Внедряем настройки стабильного SDK в buildozer.spec перед стартом
+          echo -e "\nandroid.sdk_path = /usr/lib/android-sdk" >> buildozer.spec
+          echo -e "android.ndk_path = " >> buildozer.spec
           
-          # Заменяем дефолтный main.py в папке src вашим основным файлом кода
-          cp main.py tmp_app/src/main.py
-          
-          # Копируем остальные связанные скрипты тестирования внутрь папки src
-          cp screens.py tmp_app/src/
-          cp data_manager.py tmp_app/src/
-          cp config.py tmp_app/src/
-          cp config.json tmp_app/src/ || true
-          
-          # КРИТИЧЕСКИЙ ШАГ: Копируем requirements.txt прямо в папку src, чтобы сборщик увидел зависимости приложения!
-          cp requirements.txt tmp_app/src/requirements.txt
-          
-          # Копируем зашифрованные вопросы .dat и шрифты внутрь папки src/assets
-          mkdir -p tmp_app/src/assets
-          cp -r assets/* tmp_app/src/assets/
-          
-          # Переходим в созданный проект и запускаем сборку
-          cd tmp_app
-          flutter config --no-enable-linux-desktop
-          
-          # Запускаем чистую сборку (Flet сам прочитает src/requirements.txt)
-          flet build apk --yes --python-version 3.12
+          # Запуск компиляции
+          buildozer android debug
 
-      # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
+      # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Test-OB-App
-          path: tmp_app/build/apk/*.apk
+          path: bin/*.apk
