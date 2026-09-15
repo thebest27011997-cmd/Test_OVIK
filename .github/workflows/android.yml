@@ -21,40 +21,28 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Buildozer and Dependencies
+      # Устанавливаем все зависимости, включая официальные инструменты Android SDK для Ubuntu (sdkmanager)
+      - name: Install Buildozer and Linux Android SDK
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev cmake gcc g++ aidl
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev cmake gcc g++ aidl android-sdk
           pip install --upgrade pip
           pip install buildozer cython
 
-      # СТРАТЕГИЧЕСКИЙ ШАГ: Запускаем Buildozer в режиме подготовки, чтобы он сам скачал Android SDK
-      - name: Initialize Android SDK via Buildozer
+      # ЖЕСТКОЕ ИСПРАВЛЕНИЕ ПУТЕЙ: Создаем для Buildozer структуру папок, которую он требует,
+      # и связываем её с системным, рабочим sdkmanager из Linux Ubuntu
+      - name: Force Link System SDK to Buildozer Path
         run: |
-          buildozer android status || true
-
-      # ИСПРАВЛЕНИЕ БАГА ПУТЕЙ GOOGLE: создаем виртуальный мост, чтобы Buildozer нашел sdkmanager в новой папке
-      - name: Fix Legacy Android SDK Tools Path
-        run: |
-          # Создаем структуру папок, которую ищет Buildozer
+          # Создаем физический путь, куда заглядывает компилятор
           mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin/
           
-          # Находим, куда утилита скачала реальный sdkmanager (в cmdline-tools)
-          # и делаем на него прямую системную ссылку
-          REAL_SDKMANAGER=$(find ~/.buildozer/android/platform/ -name "sdkmanager" -type f | head -n 1)
-          if [ -n "$REAL_SDKMANAGER" ]; then
-            ln -s "$REAL_SDKMANAGER" ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager || true
-            echo "Путь к sdkmanager успешно исправлен!"
-          else
-            echo "Предупреждение: Сборщик еще не скачал SDK, ссылка создастся во время сборки"
-          fi
-
-      # Автоматически одобряем все лицензии Android
-      - name: Accept Android SDK Licenses
-        run: |
+          # Делаем прямую ссылку на рабочий системный sdkmanager
+          ln -s /usr/bin/sdkmanager ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager || true
+          
+          # Одобряем все лицензии Google в системном SDK
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
-          yes | sdkmanager --licenses || true
+          yes | /usr/bin/sdkmanager --licenses || true
           yes | ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses || true
 
       - name: Build with Buildozer
