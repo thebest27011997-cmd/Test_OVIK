@@ -30,16 +30,16 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install flet==1.0.0
 
-      # 5. КРИТИЧЕСКИЙ ШАГ: Принимаем встроенные на сервере лицензии Android (занимает 1 секунду)
+      # 5. Принимаем встроенные на сервере лицензии Android (занимает 1 секунду)
       - name: Accept Pre-installed Android SDK Licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 6. СВЕРХБЫСТРАЯ СБОРКА: Компилируем ваш проект напрямую из корня репозитория.
-      # Мы жестко передаем зависимости через флаг --packages, исключая чтение сбойных pyproject/requirements!
+      # 6. ЧИСТАЯ СБОРКА: Компилируем ваш проект напрямую из корня репозитория.
+      # Flet автоматически прочитает requirements.txt, который лежит рядом с main.py
       - name: Build Android APK Package
         run: |
-          flet build apk --yes --python-version 3.12 --packages pandas openpyxl cryptography reportlab
+          flet build apk --yes --python-version 3.12
 
       # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload Clean Native APK Artifact
