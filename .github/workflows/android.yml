@@ -30,24 +30,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet==1.0.0 pandas openpyxl pycryptodome reportlab
 
-      # 5. КРИТИЧЕСКИЙ ШАГ: Принимаем лицензии и докачиваем платформы Android 34 и инструменты сборки
+      # 5. Принимаем лицензии и докачиваем платформы Android 34 и инструменты сборки
       - name: Install Missing Android SDK Components & Accept Licenses
         run: |
-          # Принимаем лицензии
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          
-          # Принудительно скачиваем платформу Android 34 и нужные build-tools для Flutter
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
-          
-          # Повторно подписываем лицензии для только что скачанных компонентов
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 6. Запускаем нативную сборку Flet — теперь «Doctor» не найдет никаких проблем
+      # 6. КРИТИЧЕСКИЙ ШАГ: Отключаем сборку под Linux Desktop во Flutter, чтобы Doctor не требовал GTK-библиотеки
+      - name: Disable Linux Desktop Support in Flutter
+        run: |
+          flutter config --no-enable-linux-desktop
+          flutter config --no-enable-windows-desktop
+          flutter config --no-enable-macos-desktop
+
+      # 7. Запускаем целевую сборку строго под Android APK
       - name: Build Android APK
         run: |
           flet build apk --yes
 
-      # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
+      # 8. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
