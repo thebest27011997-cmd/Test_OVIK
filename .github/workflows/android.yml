@@ -8,75 +8,55 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1. Клонируем код вашего проекта
       - uses: actions/checkout@v4
 
-      # 2. Настраиваем Java 17 (требуется для компиляции Android)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Настраиваем стабильный Flutter SDK в системе
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      # 4. Настраиваем Python 3.12
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # 5. УСТАНАВЛИВАЕМ КОМПИЛЯТОРЫ C++ И КРИТИЧЕСКИЕ БИБЛИОТЕКИ (Для сборки pycryptodome и Flutter Doctor)
-      - name: Install Linux Build Tools and GTK
+      # Библиотеки Linux нужны только для прохождения теста Flutter Doctor
+      - name: Install Linux GTK Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev ninja-build cmake gcc g++
+          sudo apt-get install -y libgtk-3-dev ninja-build
 
-      # 6. Устанавливаем зависимости в глобальное окружение сервера
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flet pandas openpyxl pycryptodome reportlab
+          pip install flet==1.0.0 pandas openpyxl cryptography reportlab
 
-      # 7. Принимаем лицензии Android
       - name: Accept Android SDK Licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 8. СТРОГИЙ ПЕРЕНОС И СБОРКА: Создаем чистый шаблон и перезаписываем его вашим кодом
       - name: Bootstrap and Build Native Android Package
         run: |
-          # Создаем чистый эталонный проект Flet
           flet create tmp_app
-          
-          # Заменяем дефолтный main.py в папке src вашим основным файлом кода
           cp main.py tmp_app/src/main.py
-          
-          # Копируем остальные связанные скрипты тестирования внутрь папки src
           cp screens.py tmp_app/src/
           cp data_manager.py tmp_app/src/
           cp config.py tmp_app/src/
           cp config.json tmp_app/src/ || true
-          
-          # Копируем requirements.txt прямо в папку src, чтобы сборщик увидел зависимости приложения
           cp requirements.txt tmp_app/src/requirements.txt
-          
-          # Копируем зашифрованные вопросы .dat и шрифты внутрь папки src/assets
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
-          # Переходим в созданный проект и запускаем сборку
           cd tmp_app
           flutter config --no-enable-linux-desktop
-          
-          # Запускаем чистую сборку (Flet сам прочитает src/requirements.txt)
           flet build apk --yes --python-version 3.12
 
-      # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
