@@ -47,7 +47,7 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 8. СТРОГИЙ ПЕРЕНОС: Создаем шаблон приложения и принудительно заменяем дефолтный счетчик вашим кодом
+      # 8. СТРОГИЙ ПЕРЕНОС И СБОРКА С ПАКЕТАМИ: принудительно передаем список библиотек компилятору
       - name: Bootstrap and Build Native Android Package
         run: |
           # Создаем чистый эталонный проект Flet
@@ -69,7 +69,9 @@ jobs:
           # Переходим в созданный проект и запускаем сборку
           cd tmp_app
           flutter config --no-enable-linux-desktop
-          flet build apk --yes --python-version 3.12
+          
+          # ЯВНО УКАЗЫВАЕМ ПАКЕТЫ ДЛЯ ВШИВАНИЯ В APK ЧЕРЕЗ ТЕРМИНАЛ
+          flet build apk --yes --python-version 3.12 --packages pandas openpyxl pycryptodome reportlab
 
       # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload APK Artifact
