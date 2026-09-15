@@ -28,20 +28,25 @@ def local_decrypt_and_load_questions(page: ft.Page):
     combined_pool = []
     crypto_password = getattr(config, "EXCEL_PASSWORD", "TEST_OVIK")
     
-    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Список файлов на Android берется через менеджер ассетов Flet
-    try:
-        # Пропишите сюда точные имена ваших файлов для 100% стабильности в админ-панели
-        files_in_dir = ["СП_60.dat"]  
-    except Exception:
-        return []
+    # Полный список всех 9 зашифрованных баз нормативных документов ОВ
+    files_in_dir = [
+        "Постановление Правительства РФ от 16.02.2008 N 87 О составе разделов проектной документации и требованиях к их содержанию.dat",
+        "СП 7.13130.2013 Отопление, вентиляция и кондиционирование. Требования пожарной безопасности.dat",
+        "СП 50.13330.2024 Тепловая защита зданий.dat",
+        "СП 60.13330.2020 Отопление, вентиляция и кондиционирование воздуха.dat",
+        "СП 73.13330.2016 Внутренние санитарно-технические системы зданий.dat",
+        "СП 124.13330.2012 Тепловые сети.dat",
+        "СП 246.1325800.2023 Положение об авторском надзоре при строительстве, реконструкции и капитальном ремонте объектов капитального строительства.dat",
+        "СП 510.1325800.2022 Тепловые пункты и системы внутреннего теплоснабжения.dat",
+        "Федеральный закон 384.dat"
+    ]
 
     for f in files_in_dir:
+        # ФИЛЬТР АДМИНИСТРАТОРА: Если админ выбрал конкретные источники, игнорируем остальные файлы
         if hasattr(config, "SELECTED_SOURCES") and config.SELECTED_SOURCES:
             if f not in config.SELECTED_SOURCES:
                 continue
                 
-        asset_path = f"questions/{f}"
-        
         try:
             # Считываем байты из папки активов мобильного приложения
             local_file_path = os.path.join("assets", "questions", f)
@@ -341,7 +346,6 @@ class AppScreens:
         if config.settings["mode"] == "контрольные вопросы" and self.state["correct_count"] < config.settings["passing_score"]:
             status = "Не пройден"
 
-        # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ДЛЯ АНДРОИД: Переключаем рабочий каталог на безопасную папку приложения
         try:
             os.chdir(self.page.user_data_dir)
         except Exception:
@@ -380,17 +384,31 @@ class AppScreens:
         source_checkboxes = {}
         checkbox_container = Column(spacing=5)
         
-        # Список доступных баз документов
-        available_files = ["СП_60.dat"]
+        # Полный список доступных баз документов для мобильной админки
+        available_files = [
+            "Постановление Правительства РФ от 16.02.2008 N 87 О составе разделов проектной документации и требованиях к их содержанию.dat",
+            "СП 7.13130.2013 Отопление, вентиляция и кондиционирование. Требования пожарной безопасности.dat",
+            "СП 50.13330.2024 Тепловая защита зданий.dat",
+            "СП 60.13330.2020 Отопление, вентиляция и кондиционирование воздуха.dat",
+            "СП 73.13330.2016 Внутренние санитарно-технические системы зданий.dat",
+            "СП 124.13330.2012 Тепловые сети.dat",
+            "СП 246.1325800.2023 Положение об авторском надзоре при строительстве, реконструкции и капитальном ремонте объектов капитального строительства.dat",
+            "СП 510.1325800.2022 Тепловые пункты и системы внутреннего теплоснабжения.dat",
+            "Федеральный закон 384.dat"
+        ]
         
         for file_name in available_files:
-            display_name = os.path.splitext(file_name)
+            # Отрезаем расширение .dat для красивого отображения на экране
+            clean_display_name = file_name
+            if file_name.lower().endswith(".dat"):
+                clean_display_name = file_name[:-4]
+                
             if not config.SELECTED_SOURCES:
                 is_checked = True
             else:
                 is_checked = (file_name in config.SELECTED_SOURCES)
                 
-            cb = Checkbox(label=display_name, value=is_checked)
+            cb = Checkbox(label=clean_display_name, value=is_checked)
             source_checkboxes[file_name] = cb
             checkbox_container.controls.append(cb)
             
@@ -410,5 +428,5 @@ class AppScreens:
             except ValueError:
                 self.show_snack("Параметры лимитов должны быть числами!")
 
-        self.page.add(ElevatedButton("Сохранить конфигурацию и выйти", on_click=save_admin_settings, bgcolor="blue", color="white", width=350, height=45))
+        self.page.add(ElevatedButton("Сохранить конфигурацию и退出", on_click=save_admin_settings, bgcolor="blue", color="white", width=350, height=45))
         self.page.update()
