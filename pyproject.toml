@@ -3,7 +3,7 @@ name = "test-ovik-app"
 version = "1.0.0"
 description = "Мобильное приложение тестирования ОВиК"
 dependencies = [
-    "flet==0.21.0",
+    "flet==1.0.0",
     "pandas",
     "openpyxl",
     "pycryptodome",
