@@ -8,40 +8,17 @@ import hashlib
 import pandas as pd
 import flet as ft
 
-# УНИВЕРСАЛЬНЫЙ СИСТЕМА ИМПОРТА КОМПОНЕНТОВ ДЛЯ 100% КРОСС-ВЕРСИОННОСТИ
-try:
-    # 1. Пробуем импортировать из flet.controls (Новый мобильный стандарт в APK)
-    from flet.controls import (
-        Column, Row, Container, Text, TextField, ElevatedButton, 
-        TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog
-    )
-    # Выравнивание в новых версиях часто находится в модуле констант или берется строками
-    try:
-        from flet.controls.constants import MainAxisAlignment, CrossAxisAlignment
-    except (ImportError, ModuleNotFoundError):
-        MainAxisAlignment = ft.MainAxisAlignment
-        CrossAxisAlignment = ft.CrossAxisAlignment
-except (ImportError, ModuleNotFoundError):
-    try:
-        # 2. Резервный вариант: импорт напрямую из корня flet (Для ПК разработчика)
-        from flet import (
-            Column, Row, Container, Text, TextField, ElevatedButton, 
-            TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog, MainAxisAlignment, CrossAxisAlignment
-        )
-    except (ImportError, ModuleNotFoundError):
-        # 3. Аварийный вариант (Динамическое сопоставление через атрибуты)
-        Column, Row, Container = ft.Column, ft.Row, ft.Container
-        Text, TextField, ElevatedButton = ft.Text, ft.TextField, ft.ElevatedButton
-        TextButton, RadioGroup, Radio = ft.TextButton, ft.RadioGroup, ft.Radio
-        Checkbox, SnackBar, AlertDialog = ft.Checkbox, ft.SnackBar, ft.AlertDialog
-        MainAxisAlignment, CrossAxisAlignment = ft.MainAxisAlignment, ft.CrossAxisAlignment
+# Стандартный проверенный импорт для версии 0.21.0
+from flet import (
+    Column, Row, Container, Text, TextField, ElevatedButton, 
+    TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog, MainAxisAlignment, CrossAxisAlignment
+)
 
 # Импорт криптографии напрямую в интерфейс (100% стабильность в APK)
 from Crypto.Cipher import AES
 
 import config
 from data_manager import generate_pdf_report_flet
-
 
 def local_decrypt_and_load_questions():
     """Встроенная функция гарантированного пофайлового дешифрования .dat с фильтром источников."""
