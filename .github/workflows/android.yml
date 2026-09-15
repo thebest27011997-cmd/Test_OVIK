@@ -18,30 +18,24 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Устанавливаем стабильный Flutter SDK (движок для сборки)
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      # 4. Настраиваем Python
+      # 3. Настраиваем Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 5. Устанавливаем зависимости из вашего pyproject.toml
+      # 4. Устанавливаем зависимости из вашего pyproject.toml
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flet pandas openpyxl pycryptodome reportlab
 
-      # 6. Запускаем нативную сборку без посредников
+      # 5. Запускаем нативную сборку Flet с автоподтверждением
       - name: Build Android APK
         run: |
-          flet build apk
+          flet build apk --yes
 
-      # 7. Выгружаем готовый .apk в артефакты репозитория
+      # 6. Выгружаем готовый .apk в артефакты репозитория
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
