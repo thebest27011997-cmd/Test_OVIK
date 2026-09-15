@@ -30,11 +30,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем утилиту пакования мобильных Python-сред напрямую в текущую среду
-      - name: Install Python Package Bundler
+      # 5. Устанавливаем зависимости. Из списка pip убран несуществующий serious_python
+      - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pandas openpyxl cryptography reportlab flet serious_python
+          python3 -m pip install pandas openpyxl cryptography reportlab flet
 
       # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер вручную в чистой папке
       - name: Bootstrap Native Flutter Project and Inject Python Code
@@ -43,7 +43,7 @@ jobs:
           flutter create --org org.ovik --project-name test_ov_app flutter_project
           cd flutter_project
           
-          # Подключаем официальный плагин serious_python, который запускает Python на Android
+          # Подключаем официальный плагин serious_python и flet для запуска кода на Android
           flutter pub add serious_python flet
           
           # Создаем внутренний защищенный каталог для вашей программы
@@ -59,8 +59,8 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # ЖЕСТКАЯ СШИВКА БИБЛИОТЕК через принудительный вызов текущего интерпретатора
-          python3 -m serious_python package app/main.py
+          # ИСПРАВЛЕНИЕ: Используем официальный упаковщик flet pack для жесткой сшивки библиотек в APK
+          flet pack app/main.py
           
           # Регистрируем полученный зашифрованный архив с кодом в манифесте Flutter (pubspec.yaml)
           sed -i '/assets:/a \    - app-package.zip' pubspec.yaml
