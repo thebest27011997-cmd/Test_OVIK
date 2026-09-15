@@ -18,8 +18,8 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Настраиваем Python
-      - name: Set up Python
+      # 3. ПРИНУДИТЕЛЬНО СТАВИМ PYTHON 3.11 (Чтобы flet==0.21.0 успешно установился)
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -28,7 +28,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flet pandas openpyxl pycryptodome reportlab
+          pip install flet==0.21.0 pandas openpyxl pycryptodome reportlab
 
       # 5. Запускаем нативную сборку Flet с автоподтверждением
       - name: Build Android APK
