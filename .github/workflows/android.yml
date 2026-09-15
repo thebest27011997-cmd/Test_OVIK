@@ -1,4 +1,4 @@
-name: Native Flutter Build (No Flet-CLI Bugs)
+name: Build Flet Android APK
 on:
   push:
     branches: [ main, master ]
@@ -30,50 +30,56 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем зависимости. Сюда добавлен pyinstaller для успешной работы flet pack!
+      # 5. Устанавливаем зависимости. Сюда добавлен нужный для сборки пакетов pyinstaller
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pandas openpyxl cryptography reportlab flet pyinstaller
+          python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер вручную в чистой папке
+      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер в изолированной папке
       - name: Bootstrap Native Flutter Project and Inject Python Code
         run: |
-          # Создаем пустой классический Flutter проект силами самого Google SDK
-          flutter create --org org.ovik --project-name test_ov_app flutter_project
-          cd flutter_project
+          # Создаем пустой классический Flet-проект
+          flet create tmp_app
           
-          # Подключаем официальный плагин serious_python и flet для запуска кода на Android
-          flutter pub add serious_python flet
+          # Копируем ваши скрипты в корень созданного проекта
+          cp main.py tmp_app/main.py
+          cp screens.py tmp_app/
+          cp data_manager.py tmp_app/
+          cp config.py tmp_app/
           
-          # Создаем внутренний защищенный каталог для вашей программы
-          mkdir -p app
+          # Копируем ассеты (вопросы .dat и шрифты)
+          mkdir -p tmp_app/assets
+          cp -r assets/* tmp_app/assets/
           
-          # Переносим туда ваши файлы из корня репозитория
-          cp ../main.py app/main.py
-          cp ../screens.py app/
-          cp ../data_manager.py app/
-          cp ../config.py app/
+          # Перезаписываем внутренний config.json для жесткой фиксации метаданных и зависимостей в APK
+          cat << 'EOF' > tmp_app/config.json
+          {
+            "project_name": "Тест_ОВ",
+            "org_domain": "org.ovik.testapp",
+            "dependencies": [
+              "pandas",
+              "openpyxl",
+              "cryptography",
+              "reportlab"
+            ]
+          }
+          EOF
           
-          # Зашиваем ассеты (вопросы .dat и шрифты) напрямую внутрь контейнера
-          mkdir -p app/assets
-          cp -r ../assets/* app/assets/
+          # Переходим в папку проекта
+          cd tmp_app
           
-          # Используем официальный упаковщик flet pack — теперь pyinstaller установлен и команда сработает без ошибок
-          flet pack app/main.py
+          # Отключаем десктопные платформы
+          flutter config --no-enable-linux-desktop
+          flutter config --no-enable-windows-desktop
+          flutter config --no-enable-macos-desktop
           
-          # Регистрируем полученный зашифрованный архив с кодом в манифесте Flutter (pubspec.yaml)
-          sed -i '/assets:/a \    - app-package.zip' pubspec.yaml
-          
-          # Автоматически принимаем все системные лицензии Android Google
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          
-          # Запускаем прямую нативную компиляцию APK
-          flutter build apk --release
+          # Запускаем официальную сборку. Она сама упакует файлы и нативно настроит pubspec.yaml без багов разметки
+          flet build apk --yes --python-version 3.12
 
-      # 7. Выгружаем готовый, защищенный мобильный комплекс в артефакты GitHub
+      # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload Clean Native APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Test-OB-Native-App
-          path: flutter_project/build/app/outputs/flutter-apk/app-release.apk
+          path: tmp_app/build/apk/*.apk
