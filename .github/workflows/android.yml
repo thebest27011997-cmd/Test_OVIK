@@ -28,16 +28,20 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-      # Улучшенный шаг автопринятия лицензий Google
+      # СТРАТЕГИЧЕСКИЙ ШАГ: Скачиваем оригинальные sdk-tools и кладем их точно по адресу для Buildozer
+      - name: Pre-install Legacy Android SDK Tools
+        run: |
+          mkdir -p ~/.buildozer/android/platform/android-sdk/
+          wget -q https://google.com
+          unzip -q sdk-tools-linux-4333796.zip -d ~/.buildozer/android/platform/android-sdk/
+          rm sdk-tools-linux-4333796.zip
+
+      # Принимаем лицензии через только что установленный sdkmanager
       - name: Accept Android SDK Licenses
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
-          # Принудительно создаем структуру папок и подписываем лицензии
-          mkdir -p ~/.buildozer/android/platform/android-sdk/licenses/
-          echo -e "\n893a5cd8b1afb35c5159347815134391481119d2\n24333f1a61b68a4115227a53a209e380fe91e2e4\nd56f5187479451e99b22f026a27e530c58527a75" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo -e "\n84831b9409646a918e30573bab4c9c91346d8ecf" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-          yes | sdkmanager --licenses || true
+          yes | ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses || true
 
       - name: Build with Buildozer
         run: |
