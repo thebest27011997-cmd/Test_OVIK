@@ -50,15 +50,15 @@ jobs:
           cp data_manager.py tmp_app/src/
           cp config.py tmp_app/src/
           
-          # КРИТИЧЕСКИЙ ШАГ ДЛЯ ИСКЛЮЧЕНИЯ MODULENOTFOUNDERROR:
-          # Принудительно создаем файл манифеста строго внутри папки src,
-          # чтобы внутренний движок serious_python вшил эти библиотеки внутрь APK!
-          cat << 'EOF' > tmp_app/src/requirements.txt
+          # ГЕНЕРИРУЕМ И ДУБЛИРУЕМ REQUIREMENTS ВО ВСЕ КАТАЛОГИ СБОРЩИКА:
+          # Это заставит flet-cli и его плагины гарантированно вшить библиотеки внутрь APK!
+          cat << 'EOF' > tmp_app/requirements.txt
           pandas
           openpyxl
           cryptography
           reportlab
           EOF
+          cp tmp_app/requirements.txt tmp_app/src/requirements.txt
           
           # Копируем зашифрованные вопросы .dat и шрифты внутрь папки src/assets
           mkdir -p tmp_app/src/assets
@@ -87,7 +87,7 @@ jobs:
           flutter config --no-enable-windows-desktop
           flutter config --no-enable-macos-desktop
           
-          # Запускаем официальную сборку (flet-cli прочитает созданный src/requirements.txt и вшьет библиотеки)
+          # Запускаем официальную сборку (flet-cli прочитает созданный requirements.txt и вшьет библиотеки)
           flet build apk --yes --python-version 3.12
 
       # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
