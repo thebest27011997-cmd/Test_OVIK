@@ -30,12 +30,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet==1.0.0 pandas openpyxl pycryptodome reportlab
 
-      # 5. КРИТИЧЕСКИЙ ШАГ: Автоматически принимаем встроенные на сервере лицензии Android
-      - name: Accept Pre-installed Android SDK Licenses
+      # 5. КРИТИЧЕСКИЙ ШАГ: Принимаем лицензии и докачиваем платформы Android 34 и инструменты сборки
+      - name: Install Missing Android SDK Components & Accept Licenses
         run: |
+          # Принимаем лицензии
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          
+          # Принудительно скачиваем платформу Android 34 и нужные build-tools для Flutter
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          
+          # Повторно подписываем лицензии для только что скачанных компонентов
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 6. Запускаем нативную сборку Flet — теперь она увидит встроенный лицензированный SDK
+      # 6. Запускаем нативную сборку Flet — теперь «Doctor» не найдет никаких проблем
       - name: Build Android APK
         run: |
           flet build apk --yes
