@@ -36,7 +36,7 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Собираем мобильный контейнер в изолированной папке src с зависимостями
+      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: собираем структуру строго под требования Flet 1.0.0
       - name: Bootstrap Native Flutter Project and Inject Python Code
         run: |
           # Создаем чистый эталонный проект Flet
@@ -50,8 +50,20 @@ jobs:
           cp data_manager.py tmp_app/src/
           cp config.py tmp_app/src/
           
-          # ГЕНЕРИРУЕМ И ДУБЛИРУЕМ REQUIREMENTS ВО ВСЕ КАТАЛОГИ СБОРЩИКА:
-          # Это заставит flet-cli и его плагины гарантированно вшить библиотеки внутрь APK!
+          # ГЕНЕРИРУЕМ PYPROJECT.TOML СТРОГО В КОРНЕ ПАПКИ СБОРКИ ДЛЯ ИНКЛЮДА ПАКЕТОВ:
+          cat << 'EOF' > tmp_app/pyproject.toml
+          [project]
+          name = "test-ovik-app"
+          version = "1.0.0"
+          dependencies = [
+              "pandas",
+              "openpyxl",
+              "cryptography",
+              "reportlab"
+          ]
+          EOF
+          
+          # Дублируем requirements.txt
           cat << 'EOF' > tmp_app/requirements.txt
           pandas
           openpyxl
@@ -64,7 +76,7 @@ jobs:
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
-          # Перезаписываем внутренний config.json во всех каталогах для подстраховки метаданных
+          # Перезаписываем внутренний config.json во всех каталогах для подстраховки метаданных Flutter
           cat << 'EOF' > tmp_app/config.json
           {
             "project_name": "Тест_ОВ",
@@ -87,7 +99,7 @@ jobs:
           flutter config --no-enable-windows-desktop
           flutter config --no-enable-macos-desktop
           
-          # Запускаем официальную сборку (flet-cli прочитает созданный requirements.txt и вшьет библиотеки)
+          # Запускаем официальную сборку (flet-cli прочитает созданный pyproject.toml и вшьет библиотеки)
           flet build apk --yes --python-version 3.12
 
       # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
