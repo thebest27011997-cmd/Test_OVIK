@@ -30,27 +30,38 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем зависимости на сервер сборки
-      - name: Install Python Dependencies
+      # 5. Устанавливаем зависимости на сервер сборки (включая GTK библиотеки)
+      - name: Install Python & Linux Dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev ninja-build
           python3 -m pip install --upgrade pip
           python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: собираем структуру строго под требования Flet 1.0.0
+      # 6. Принимаем лицензии Android
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      # 7. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Дублируем файлы во все папки сборщика для 100% видимости
       - name: Bootstrap Native Flutter Project and Inject Python Code
         run: |
           # Создаем чистый эталонный проект Flet
           flet create tmp_app
           
-          # Перезаписываем дефолтный main.py вашим основным файлом кода в папке src
-          cp main.py tmp_app/src/main.py
+          # Копируем файлы в КОРЕНЬ проекта (где их ищет flet build)
+          cp main.py tmp_app/main.py
+          cp screens.py tmp_app/
+          cp data_manager.py tmp_app/
+          cp config.py tmp_app/
           
-          # Копируем остальные связанные скрипты тестирования внутрь папки src
+          # На всякий случай дублируем файлы в папку SRC (для совместимости)
+          cp main.py tmp_app/src/main.py
           cp screens.py tmp_app/src/
           cp data_manager.py tmp_app/src/
           cp config.py tmp_app/src/
           
-          # ГЕНЕРИРУЕМ PYPROJECT.TOML СТРОГО В КОРНЕ ПАПКИ СБОРКИ ДЛЯ ИНКЛЮДА ПАКЕТОВ:
+          # ГЕНЕРИРУЕМ PYPROJECT.TOML СТРОГО В КОРНЕ ПАПКИ СБОРКИ ДЛЯ ИНКЛЮДА ПАКЕТОВ
           cat << 'EOF' > tmp_app/pyproject.toml
           [project]
           name = "test-ovik-app"
@@ -63,7 +74,7 @@ jobs:
           ]
           EOF
           
-          # Дублируем requirements.txt
+          # Дублируем requirements.txt во все рабочие папки
           cat << 'EOF' > tmp_app/requirements.txt
           pandas
           openpyxl
@@ -72,7 +83,9 @@ jobs:
           EOF
           cp tmp_app/requirements.txt tmp_app/src/requirements.txt
           
-          # Копируем зашифрованные вопросы .dat и шрифты внутрь папки src/assets
+          # Копируем зашифрованные вопросы .dat и шрифты во все структуры ассетов
+          mkdir -p tmp_app/assets
+          cp -r assets/* tmp_app/assets/
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
@@ -94,15 +107,15 @@ jobs:
           # Переходим в папку проекта
           cd tmp_app
           
-          # Отключаем десктопные платформы
+          # Отключаем десктопные платформы во Flutter
           flutter config --no-enable-linux-desktop
           flutter config --no-enable-windows-desktop
           flutter config --no-enable-macos-desktop
           
-          # Запускаем официальную сборку (flet-cli прочитает созданный pyproject.toml и вшьет библиотеки)
+          # Запускаем сборку
           flet build apk --yes --python-version 3.12
 
-      # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
+      # 8. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload Clean Native APK Artifact
         uses: actions/upload-artifact@v4
         with:
