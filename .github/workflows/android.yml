@@ -24,13 +24,13 @@ jobs:
         with:
           channel: 'stable'
 
-      # 4. Настраиваем Python
+      # 4. Настраиваем Python 3.11
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 5. УСТАНАВЛИВАЕМ КРИТИЧЕСКИЕ БИБЛИОТЕКИ LINUX (Чтобы заглушить проверку Flutter Doctor)
+      # 5. Устанавливаем критические библиотеки Linux для проверки Flutter Doctor
       - name: Install Linux GTK Dependencies
         run: |
           sudo apt-get update
@@ -49,10 +49,10 @@ jobs:
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 8. Запускаем нативную сборку Flet — теперь окружение Linux полностью готово к проверкам
+      # 8. Запускаем сборку — теперь Flet принудительно возьмет стабильный Python 3.11 для APK
       - name: Build Android APK
         run: |
-          flet build apk --yes
+          flet build apk --yes --python-version 3.11
 
       # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload APK Artifact
