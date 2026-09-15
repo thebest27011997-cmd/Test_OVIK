@@ -8,6 +8,12 @@ import hashlib
 import pandas as pd
 import flet as ft
 
+# Явный импорт компонентов для совместимости с новыми версиями Flet
+from flet import (
+    Column, Row, Container, Text, TextField, ElevatedButton, 
+    TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog, MainAxisAlignment, CrossAxisAlignment
+)
+
 # Импорт криптографии напрямую в интерфейс (100% стабильность в APK)
 from Crypto.Cipher import AES
 
@@ -35,16 +41,14 @@ def local_decrypt_and_load_questions():
         return []
 
     for f in files_in_dir:
-        # ФИЛЬТР АДМИНИСТРАТОРА: Если админ выбрал конкретные источники, игнорируем остальные файлы
         if hasattr(config, "SELECTED_SOURCES") and config.SELECTED_SOURCES:
             if f not in config.SELECTED_SOURCES:
-                continue  # Пропускаем файл, если он не отмечен админом
+                continue
                 
         file_path = os.path.join(embedded_questions_dir, f)
         
         if f.lower().endswith(".dat"):
             try:
-                # 1. Расшифровка
                 key = hashlib.sha256(crypto_password.encode('utf-8')).digest()
                 with open(file_path, 'rb') as file_bytes:
                     iv = file_bytes.read(16)
@@ -54,11 +58,9 @@ def local_decrypt_and_load_questions():
                 pad_len = plaintext[-1]
                 plaintext = plaintext[:-pad_len]
                 
-                # 2. Передача в pandas байтового потока
                 stream = io.BytesIO(plaintext)
                 df = pd.read_excel(stream, engine='openpyxl')
                 
-                # 3. Парсинг строк
                 for _, row in df.iterrows():
                     q_text = str(row["вопрос"]).strip()
                     q_type = str(row["тип вопроса"]).strip().lower()
@@ -76,7 +78,6 @@ def local_decrypt_and_load_questions():
             except Exception as e:
                 print(f"Ошибка дешифрования защищенного файла {f}: {e}")
                 
-        # Если случайно остался исходный .xlsx на ПК, читаем его без криптографии
         elif f.lower().endswith(".xlsx") and embedded_questions_dir == "questions":
             try:
                 df = pd.read_excel(file_path)
@@ -117,7 +118,7 @@ class AppScreens:
         self.timer_thread = None
 
     def show_snack(self, text):
-        self.page.snack_bar = ft.SnackBar(ft.Text(text), bgcolor="redaccent")
+        self.page.snack_bar = SnackBar(Text(text), bgcolor="redaccent")
         self.page.snack_bar.open = True
         self.page.update()
 
@@ -128,10 +129,10 @@ class AppScreens:
         self.page.vertical_alignment = "center"
         self.page.horizontal_alignment = "center"
         
-        name_input = ft.TextField(label="Фамилия и Инициалы", width=350, on_submit=lambda e: login_click(None))
-        mode_radio = ft.RadioGroup(content=ft.Column([
-            ft.Radio(value="контрольные вопросы", label="Контрольные вопросы"),
-            ft.Radio(value="обучение", label="Обучение")
+        name_input = TextField(label="Фамилия и Инициалы", width=350, on_submit=lambda e: login_click(None))
+        mode_radio = RadioGroup(content=Column([
+            Radio(value="контрольные вопросы", label="Контрольные вопросы"),
+            Radio(value="обучение", label="Обучение")
         ]), value=config.settings["mode"])
 
         def login_click(e):
@@ -170,16 +171,16 @@ class AppScreens:
                 self.render_question_screen()
 
         self.page.add(
-            ft.Column([
-                ft.Text("Тестирование ОВиК", size=26, weight="bold", color="blue800"),
-                ft.Container(height=10), 
+            Column([
+                Text("Тестирование ОВиК", size=26, weight="bold", color="blue800"),
+                Container(height=10), 
                 name_input, 
-                ft.Text("Выберите режим тестирования:", weight="bold"), 
+                Text("Выберите режим тестирования:", weight="bold"), 
                 mode_radio,
-                ft.ElevatedButton("Войти", on_click=login_click, bgcolor="green", color="white", width=200, height=45)
+                ElevatedButton("Войти", on_click=login_click, bgcolor="green", color="white", width=200, height=45)
             ], 
-            alignment=ft.MainAxisAlignment.CENTER, 
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+            alignment=MainAxisAlignment.CENTER, 
+            horizontal_alignment=CrossAxisAlignment.CENTER)
         )
         self.page.update()
 
@@ -209,19 +210,18 @@ class AppScreens:
     def render_question_screen(self):
         self.page.clean()
         
-        # Сбрасываем центрирование страницы для корректного левого выравнивания вопросов
         self.page.vertical_alignment = "start"
         self.page.horizontal_alignment = "stretch"
         
         idx = self.state["current_idx"]
         q = self.state["questions"][idx]
         
-        info_text = ft.Text(f"Сотрудник: {self.state['user_name']} | Режим: {config.settings['mode'].upper()}", size=12, italic=True)
+        info_text = Text(f"Сотрудник: {self.state['user_name']} | Режим: {config.settings['mode'].upper()}", size=12, italic=True)
         
         mins, secs = divmod(self.time_left_seconds, 60)
         timer_color = "red800" if self.time_left_seconds <= 60 else "bluegrey700"
         
-        self.lbl_timer = ft.Text(
+        self.lbl_timer = Text(
             value=f"Осталось времени: {mins:02d}:{secs:02d}", 
             size=14, 
             weight="bold", 
@@ -229,24 +229,23 @@ class AppScreens:
             visible=(config.settings["mode"] == "контрольные вопросы")
         )
         
-        self.page.add(ft.Row([info_text, self.lbl_timer], alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
+        self.page.add(Row([info_text, self.lbl_timer], alignment=MainAxisAlignment.SPACE_BETWEEN))
         
-        # Текст вопроса выравнивается по левому краю окна автоматически за счет page.horizontal_alignment = "stretch"
-        self.page.add(ft.Text(f"Вопрос {idx + 1}:\n{q['text']}", size=16, weight="bold"))
+        self.page.add(Text(f"Вопрос {idx + 1}:\n{q['text']}", size=16, weight="bold"))
 
-        input_container = ft.Column()
-        checkboxes, radio_group = {}, ft.RadioGroup(content=ft.Column())
-        text_field = ft.TextField(label="Введите ваш ответ (без учета регистра)", width=450)
+        input_container = Column()
+        checkboxes, radio_group = {}, RadioGroup(content=Column())
+        text_field = TextField(label="Введите ваш ответ (без учета регистра)", width=450)
 
         if "один" in q["type"]:
-            for opt in q["options"]: radio_group.content.controls.append(ft.Radio(value=opt, label=opt))
+            for opt in q["options"]: radio_group.content.controls.append(Radio(value=opt, label=opt))
             radio_group.value = self.state["saved_replies"].get(idx, "")
             input_container.controls.append(radio_group)
         elif "несколько" in q["type"]:
-            self.page.add(ft.Text("выберите несколько вариантов", size=12, color="orange800", italic=True))
+            self.page.add(Text("выберите несколько вариантов", size=12, color="orange800", italic=True))
             saved_arr = self.state["saved_replies"].get(idx, "").split("; ")
             for opt in q["options"]:
-                cb = ft.Checkbox(label=opt, value=(opt in saved_arr))
+                cb = Checkbox(label=opt, value=(opt in saved_arr))
                 checkboxes[opt] = cb
                 input_container.controls.append(cb)
         elif "текст" in q["type"]:
@@ -255,10 +254,9 @@ class AppScreens:
 
         self.page.add(input_container)
 
-        # Строка источника полностью скрыта для Контроля (visible=False)
-        source_ui = ft.Text(f"Источник: {q['source'] if q['source'] else 'Не указан'}", size=12, italic=True, color="blue800", visible=False)
+        source_ui = Text(f"Источник: {q['source'] if q['source'] else 'Не указан'}", size=12, italic=True, color="blue800", visible=False)
         self.page.add(source_ui)
-        text_correct_lbl = ft.Text("", color="green", weight="bold", visible=False)
+        text_correct_lbl = Text("", color="green", weight="bold", visible=False)
         self.page.add(text_correct_lbl)
 # screens.py — ЧАСТЬ 3
 
@@ -306,14 +304,14 @@ class AppScreens:
                 confirm_dialog.open = False
                 self.page.update()
 
-            confirm_dialog = ft.AlertDialog(
-                title=ft.Text("Предупреждение"),
-                content=ft.Text("Вы уверены, что хотите принудительно завершить тестирование? Все оставшиеся вопросы будут засчитаны как неверные."),
+            confirm_dialog = AlertDialog(
+                title=Text("Предупреждение"),
+                content=Text("Вы уверены, что хотите принудительно завершить тестирование? Все оставшиеся вопросы будут засчитаны как неверные."),
                 actions=[
-                    ft.TextButton("Да, завершить", on_click=confirm_exit, style=ft.ButtonStyle(color="red")),
-                    ft.TextButton("Отмена", on_click=close_dialog),
+                    TextButton("Да, завершить", on_click=confirm_exit, style=ft.ButtonStyle(color="red")),
+                    TextButton("Отмена", on_click=close_dialog),
                 ],
-                actions_alignment=ft.MainAxisAlignment.END,
+                actions_alignment=MainAxisAlignment.END,
             )
             
             if hasattr(self.page, "open"):
@@ -323,16 +321,16 @@ class AppScreens:
                 confirm_dialog.open = True
                 self.page.update()
 
-        buttons_row = ft.Row(wrap=True, spacing=10, alignment=ft.MainAxisAlignment.START)
-        if idx > 0: buttons_row.controls.append(ft.ElevatedButton("Назад", on_click=prev_click, bgcolor="grey400"))
+        buttons_row = Row(wrap=True, spacing=10, alignment=MainAxisAlignment.START)
+        if idx > 0: buttons_row.controls.append(ElevatedButton("Назад", on_click=prev_click, bgcolor="grey400"))
         if config.settings["mode"] == "обучение":
-            buttons_row.controls.append(ft.ElevatedButton("Показать верный ответ", on_click=show_hint_click, bgcolor="orange"))
+            buttons_row.controls.append(ElevatedButton("Показать верный ответ", on_click=show_hint_click, bgcolor="orange"))
         
         buttons_row.controls.append(
-            ft.ElevatedButton("Завершить досрочно", on_click=open_confirm_dialog, bgcolor="red", color="white")
+            ElevatedButton("Завершить досрочно", on_click=open_confirm_dialog, bgcolor="red", color="white")
         )
         
-        buttons_row.controls.append(ft.ElevatedButton("Завершить" if (idx == len(self.state["questions"]) - 1) else "Далее", on_click=next_click, bgcolor="green", color="white"))
+        buttons_row.controls.append(ElevatedButton("Завершить" if (idx == len(self.state["questions"]) - 1) else "Далее", on_click=next_click, bgcolor="green", color="white"))
         
         self.page.add(buttons_row)
         self.page.update()
@@ -360,13 +358,13 @@ class AppScreens:
 
         generate_pdf_report_flet(self.state["user_name"], self.state["correct_count"], len(self.state["questions"]), status, self.state["history"])
         self.page.clean()
-        self.page.add(ft.Column([
-            ft.Text("Тестирование завершено!", size=22, weight="bold", color="green"),
-            ft.Text(f"Сотрудник: {self.state['user_name']}"),
-            ft.Text(f"Результат: {self.state['correct_count']} из {len(self.state['questions'])}"),
-            ft.Text(f"Статус: {status.upper()}", size=16, weight="bold", color="green" if status == "Пройден" else "red"),
-            ft.ElevatedButton("В главное меню", on_click=lambda e: self.render_login_screen(), width=200)
-        ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER))
+        self.page.add(Column([
+            Text("Тестирование завершено!", size=22, weight="bold", color="green"),
+            Text(f"Сотрудник: {self.state['user_name']}"),
+            Text(f"Результат: {self.state['correct_count']} из {len(self.state['questions'])}"),
+            Text(f"Статус: {status.upper()}", size=16, weight="bold", color="green" if status == "Пройден" else "red"),
+            ElevatedButton("В главное меню", on_click=lambda e: self.render_login_screen(), width=200)
+        ], alignment=MainAxisAlignment.CENTER, horizontal_alignment=CrossAxisAlignment.CENTER))
         self.page.update()
 
     def render_admin_screen(self):
@@ -375,24 +373,24 @@ class AppScreens:
         self.page.vertical_alignment = "start"
         self.page.horizontal_alignment = "start"
         
-        self.page.add(ft.Text("Панель администратора ОВиК", size=20, weight="bold", color="bluegrey800"))
+        self.page.add(Text("Панель администратора ОВиК", size=20, weight="bold", color="bluegrey800"))
         
-        num_q_field = ft.TextField(label="Количество вопросов в тесте", value=str(config.settings["num_questions"]), width=300)
-        pass_score_field = ft.TextField(label="Правильных ответов для зачета", value=str(config.settings["passing_score"]), width=300)
-        time_limit_field = ft.TextField(label="Время на тест (минуты)", value=str(config.settings["time_limit_minutes"]), width=300)
+        num_q_field = TextField(label="Количество вопросов в тесте", value=str(config.settings["num_questions"]), width=300)
+        pass_score_field = TextField(label="Правильных ответов для зачета", value=str(config.settings["passing_score"]), width=300)
+        time_limit_field = TextField(label="Время на тест (минуты)", value=str(config.settings["time_limit_minutes"]), width=300)
         
-        self.page.add(ft.Text("Настройки параметров теста:", weight="bold"))
+        self.page.add(Text("Настройки параметров теста:", weight="bold"))
         self.page.add(num_q_field, pass_score_field, time_limit_field)
         
-        self.page.add(ft.Container(height=10))
-        self.page.add(ft.Text("Выберите источники (базы нормативных документов):", weight="bold"))
+        self.page.add(Container(height=10))
+        self.page.add(Text("Выберите источники (базы нормативных документов):", weight="bold"))
         
         embedded_questions_dir = os.path.join("assets", "questions")
         if not os.path.exists(embedded_questions_dir):
             embedded_questions_dir = "questions"
             
         source_checkboxes = {}
-        checkbox_container = ft.Column(spacing=5)
+        checkbox_container = Column(spacing=5)
         
         if os.path.exists(embedded_questions_dir):
             try:
@@ -406,21 +404,20 @@ class AppScreens:
             for file_name in sorted(available_files):
                 display_name = os.path.splitext(file_name)[0]
                 
-                # ИСПРАВЛЕНИЕ: Выделяем всё птичками, если админ еще ничего не сохранял
                 if not config.SELECTED_SOURCES:
                     is_checked = True
                 else:
                     is_checked = (file_name in config.SELECTED_SOURCES)
                     
-                cb = ft.Checkbox(label=display_name, value=is_checked)
+                cb = Checkbox(label=display_name, value=is_checked)
                 source_checkboxes[file_name] = cb
                 checkbox_container.controls.append(cb)
         
         if not checkbox_container.controls:
-            checkbox_container.controls.append(ft.Text("Доступные файлы источников не найдены!", color="red"))
+            checkbox_container.controls.append(Text("Доступные файлы источников не найдены!", color="red"))
             
         self.page.add(checkbox_container)
-        self.page.add(ft.Container(height=15))
+        self.page.add(Container(height=15))
         
         def save_admin_settings(e):
             try:
@@ -435,5 +432,5 @@ class AppScreens:
             except ValueError:
                 self.show_snack("Параметры лимитов должны быть числами!")
 
-        self.page.add(ft.ElevatedButton("Сохранить конфигурацию и выйти", on_click=save_admin_settings, bgcolor="blue", color="white", width=350, height=45))
+        self.page.add(ElevatedButton("Сохранить конфигурацию и выйти", on_click=save_admin_settings, bgcolor="blue", color="white", width=350, height=45))
         self.page.update()
