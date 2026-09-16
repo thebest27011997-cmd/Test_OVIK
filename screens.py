@@ -1,14 +1,14 @@
 # screens.py — ЧАСТЬ 1
 import os
 import io
+import json
 import random
 import threading
 import time
 import hashlib
-import pandas as pd
 import flet as ft
 
-# Переключаемся на кроссплатформенный модуль cryptography (работает без Си-компиляции в APK)
+# Нативный кроссплатформенный модуль cryptography (работает без Си-компиляции в APK)
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
@@ -17,11 +17,10 @@ from data_manager import generate_pdf_report_flet
 
 
 def local_decrypt_and_load_questions(page: ft.Page):
-    """Мобильная версия дешифратора: корректно читает файлы из ресурсов APK."""
+    """Мобильная версия дешифратора: читает защищенные JSON-структуры без использования pandas."""
     combined_pool = []
     crypto_password = getattr(config, "EXCEL_PASSWORD", "TEST_OVIK")
     
-    # Полный список всех 9 зашифрованных баз нормативных документов ОВ
     files_in_dir = [
         "Постановление Правительства РФ от 16.02.2008 N 87 О составе разделов проектной документации и требованиях к их содержанию.dat",
         "СП 7.13130.2013 Отопление, вентиляция и кондиционирование. Требования пожарной безопасности.dat",
@@ -30,59 +29,54 @@ def local_decrypt_and_load_questions(page: ft.Page):
         "СП 73.13330.2016 Внутренние санитарно-технические системы зданий.dat",
         "СП 124.13330.2012 Тепловые сети.dat",
         "СП 246.1325800.2023 Положение об авторском надзоре при строительстве, реконструкции и капитальном ремонте объектов капитального строительства.dat",
-        "СП 510.1325800.2022 Тепловые пункты и systems внутреннего теплоснабжения.dat",
+        "СП 510.1325800.2022 Тепловые пункты и системы внутреннего теплоснабжения.dat",
         "Федеральный закон 384.dat"
     ]
 
     for f in files_in_dir:
-        # ФИЛЬТР АДМИНИСТРАТОРА: Если админ выбрал конкретные источники, игнорируем остальные файлы
         if hasattr(config, "SELECTED_SOURCES") and config.SELECTED_SOURCES:
             if f not in config.SELECTED_SOURCES:
                 continue
                 
         try:
-            # Считываем байты из папки активов мобильного приложения
             local_file_path = os.path.join("assets", "questions", f)
+            if not os.path.exists(local_file_path):
+                local_file_path = os.path.join(os.path.dirname(__file__), "assets", "questions", f)
+                
             if os.path.exists(local_file_path):
                 with open(local_file_path, 'rb') as file_bytes:
                     iv = file_bytes.read(16)
                     ciphertext = file_bytes.read()
-            else:
-                # Резервный путь внутри контейнера serious_python на Android
-                with open(os.path.join(os.path.dirname(__file__), "assets", "questions", f), 'rb') as file_bytes:
-                    iv = file_bytes.read(16)
-                    ciphertext = file_bytes.read()
                     
-            key = hashlib.sha256(crypto_password.encode('utf-8')).digest()
-            cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-            decryptor = cipher.decryptor()
-            plaintext = decryptor.update(ciphertext) + decryptor.finalize()
-            
-            pad_len = plaintext[-1]
-            plaintext = plaintext[:-pad_len]
-            
-            stream = io.BytesIO(plaintext)
-            df = pd.read_excel(stream, engine='openpyxl')
-            
-            for _, row in df.iterrows():
-                q_text = str(row["вопрос"]).strip()
-                q_type = str(row["тип вопроса"]).strip().lower()
-                correct = str(row["правильный ответ"]).strip()
-                source = str(row["источник"]).strip() if pd.notna(row["источник"]) else ""
+                key = hashlib.sha256(crypto_password.encode('utf-8')).digest()
+                cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+                decryptor = cipher.decryptor()
+                plaintext = decryptor.update(ciphertext) + decryptor.finalize()
                 
-                options = []
-                raw_options = row["варианты ответов"]
-                if pd.notna(raw_options) and "текст" not in q_type:
-                    options = [o.strip() for o in str(raw_options).split(";") if o.strip()]
+                pad_len = plaintext[-1]
+                plaintext = plaintext[:-pad_len]
                 
-                combined_pool.append({
-                    "text": q_text, "type": q_type, "options": options, "correct": correct, "source": source
-                })
+                # ИСПРАВЛЕНИЕ КРАША: Читаем данные как нативный текстовый JSON-массив вместо Excel!
+                data_list = json.loads(plaintext.decode('utf-8'))
+                
+                for row in data_list:
+                    q_text = str(row.get("вопрос", "")).strip()
+                    q_type = str(row.get("тип вопроса", "")).strip().lower()
+                    correct = str(row.get("правильный ответ", "")).strip()
+                    source = str(row.get("источник", "")) if row.get("источник") else ""
+                    
+                    options = []
+                    raw_options = row.get("варианты ответов", "")
+                    if raw_options and "текст" not in q_type:
+                        options = [o.strip() for o in str(raw_options).split(";") if o.strip()]
+                    
+                    combined_pool.append({
+                        "text": q_text, "type": q_type, "options": options, "correct": correct, "source": source
+                    })
         except Exception as e:
             print(f"Ошибка доступа к файлу {f}: {e}")
             
     return combined_pool
-
 
 class AppScreens:
     def __init__(self, page: ft.Page):
@@ -104,6 +98,7 @@ class AppScreens:
         self.page.snack_bar = ft.SnackBar(ft.Text(text), bgcolor="redaccent")
         self.page.snack_bar.open = True
         self.page.update()
+
 # screens.py — ЧАСТЬ 2
 
     def render_login_screen(self):
