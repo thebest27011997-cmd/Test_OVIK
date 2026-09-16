@@ -30,13 +30,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем базовые зависимости
+      # 5. Устанавливаем базовые зависимости (Сюда добавлен жизненно важный для pandas модуль numpy)
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pandas openpyxl cryptography reportlab flet
+          python3 -m pip install numpy pandas openpyxl cryptography reportlab flet
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Сборка с гарантированной ручной упаковкой zip
+      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Сборка с жестким вшиванием библиотек аналитики в APK
       - name: Bootstrap Native Flutter Project
         run: |
           # Создаем пустой классический Flutter проект силами самого Google SDK
@@ -68,8 +68,11 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Упаковываем весь код и ассеты в app-package.zip нативно через утилиту zip,
-          # полностью исключая баги путей и логики flet pack!
+          # ЖЕСТКАЯ МОБИЛЬНАЯ ИНТЕГРАЦИЯ: Принудительно скачиваем чистые мобильные версии 
+          # pandas, numpy и cryptography прямо в тело папки приложения перед упаковкой zip!
+          pip install --target=app/ numpy pandas openpyxl cryptography reportlab
+          
+          # Упаковываем весь код и вшитые библиотеки в единый app-package.zip
           cd app
           zip -r ../app-package.zip ./*
           cd ..
@@ -108,12 +111,11 @@ jobs:
           # Автоматически принимаем все системные лицензии Android Google
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           
-          # Вычисляем точный текстовый путь к папке библиотек сервера и передаем её плагину serious_python
-          PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])")
+          # Вычисляем путь к папке библиотек сервера и передаем её плагину serious_python
+          PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages())")
           export SERIOUS_PYTHON_SITE_PACKAGES="$PYTHON_SITE_PACKAGES"
-          echo "Путь к зависимостям успешно экспортирован: $SERIOUS_PYTHON_SITE_PACKAGES"
           
-          # Отключаем демоны и принудительно изолируем сборку в один поток во избежание зависаний
+          # Изолируем сборку в один поток во избежание зависаний
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.configureondemand=false"
           
           # Запускаем прямую нативную компиляцию APK
