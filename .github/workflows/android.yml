@@ -30,13 +30,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем базовые зависимости (Сюда добавлен pyinstaller для успешной работы flet pack)
+      # 5. Устанавливаем базовые зависимости (включая pyinstaller)
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install pandas openpyxl cryptography reportlab flet pyinstaller
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: собираем чистый проект без багов flet build
+      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: собираем чистый проект без багов разметки YAML
       - name: Bootstrap Native Flutter Project
         run: |
           # Создаем пустой классический Flutter проект силами самого Google SDK
@@ -59,16 +59,38 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # КРИТИЧЕСКИЙ ШАГ: Пакуем pandas и cryptography в один бинарный архив силами flet pack.
-          # Теперь pyinstaller установлен, и команда выполнится без ошибок за пару секунд!
+          # Пакуем pandas и cryptography в один бинарный архив силами встроенного модуля flet pack
           flet pack app/main.py
           
           # Переименовываем архив под стандарт серьезного питона
           if [ -f app.zip ]; then mv app.zip app-package.zip; fi
           if [ -f app-package.zip ]; then cp app-package.zip .; fi
           
-          # Регистрируем полученный архив с кодом и зависимостями в манифесте Flutter (pubspec.yaml)
-          sed -i '/assets:/a \    - app-package.zip' pubspec.yaml
+          # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Полностью перезаписываем pubspec.yaml эталонной разметкой без багов отступов
+          cat << 'EOF' > pubspec.yaml
+          name: test_ov_app
+          description: "A new Flutter project."
+          publish_to: 'none'
+          version: 1.0.0+1
+          
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+          
+          dependencies:
+            flutter:
+              sdk: flutter
+            serious_python: ^4.7.0
+          
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^3.0.0
+          
+          flutter:
+            uses-material-design: true
+            assets:
+              - app-package.zip
+          EOF
           
           # Автоматически принимаем все системные лицензии Android Google
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
