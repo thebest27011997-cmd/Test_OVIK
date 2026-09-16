@@ -8,40 +8,32 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1. Клонируем исходный код вашего проекта из репозитория
       - uses: actions/checkout@v4
 
-      # 2. Настраиваем Java 17 (требуется для компиляции Android)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Разворачиваем стабильный Python 3.11 на сервере
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 4. Устанавливаем официальный сборочный инструмент Flet CLI
       - name: Install Flet CLI Bundler
         run: |
           python -m pip install --upgrade pip
-          pip install flet==1.0.0 pyinstaller
+          pip install flet==1.0.0 pyinstaller cryptography reportlab
 
-      # 5. Принимаем лицензии Android Google
       - name: Accept Android SDK Licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 6. СБОРКА: Компилируем приложение с полной мобильной фиксацией всех зависимостей
+      # Сверхбыстрая сборка без тяжелых C-библиотек
       - name: Build Android APK Package
         run: |
-          # Создаем чистый эталонный проект Flet
           flet create tmp_app
-          
-          # Копируем ваши скрипты в корень и в папку src созданного проекта
           cp main.py tmp_app/main.py
           cp screens.py tmp_app/
           cp data_manager.py tmp_app/
@@ -52,58 +44,27 @@ jobs:
           cp data_manager.py tmp_app/src/
           cp config.py tmp_app/src/
           
-          # Копируем зашифрованные базы вопросов .dat и шрифты
           mkdir -p tmp_app/assets
           cp -r assets/* tmp_app/assets/
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
-          # Жесткая фиксация в pyproject.toml
           cat << 'EOF' > tmp_app/pyproject.toml
           [project]
           name = "test-ovik-app"
           version = "1.0.0"
           dependencies = [
               "flet==1.0.0",
-              "pandas",
-              "openpyxl",
               "cryptography",
-              "reportlab",
-              "certifi"
+              "reportlab"
           ]
           EOF
           cp tmp_app/pyproject.toml tmp_app/src/pyproject.toml
           
-          # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Генерируем правильный config.json во всех каталогах.
-          # Это заставит внутренний сборочный движок serious_python правильно линковать
-          # бинарные .so файлы pandas и cryptography под мобильные процессоры ARM64-v8a!
-          cat << 'EOF' > tmp_app/config.json
-          {
-            "project_name": "Тест_ОВ",
-            "org_domain": "org.ovik.testapp",
-            "dependencies": [
-              "flet",
-              "pandas",
-              "openpyxl",
-              "cryptography",
-              "reportlab",
-              "certifi"
-            ]
-          }
-          EOF
-          cp tmp_app/config.json tmp_app/src/config.json
-          
-          # Переходим в подготовленный каталог
           cd tmp_app
-          
-          # Оптимизация памяти сервера и отключение лишних платформ
           export FLET_BUILD_DESKTOP=0
-          export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Xmx2048m"
-          
-          # Запускаем официальную сборку (flet-cli прочитает созданный config.json и вшьет библиотеки)
           flet build apk --yes
 
-      # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload Clean Native APK Artifact
         uses: actions/upload-artifact@v4
         with:
