@@ -6,5 +6,6 @@
     "openpyxl",
     "cryptography",
     "reportlab"
+    "certifi"
   ]
 }
