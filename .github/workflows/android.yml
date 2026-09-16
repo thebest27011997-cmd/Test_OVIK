@@ -18,11 +18,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Разворачиваем стабильный Python 3.11 на сервере
-      - name: Set up Python 3.11
+      # 3. Разворачиваем стабильный Python 3.12 на сервере (согласно требованиям сборщика)
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       # 4. Устанавливаем официальный сборочный инструмент Flet CLI
       - name: Install Flet CLI Bundler
@@ -35,10 +35,10 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 6. ЧИСТАЯ СБОРКА: Компилируем приложение напрямую из корня, жестко зафиксировав Python 3.11
+      # 6. ЧИСТАЯ СБОРКА: Компилируем приложение напрямую из корня, жестко зафиксировав Python 3.12
       - name: Build Android APK Package
         run: |
-          # Записываем требования строго в pyproject.toml в корне репозитория перед запуском,
+          # Записываем требования строго в pyproject.toml в книге репозитория перед запуском,
           # чтобы сборщик вшил нативные мобильные Wheels криптографии под ARM64 процессоры
           cat << 'EOF' > pyproject.toml
           [project]
@@ -54,6 +54,6 @@ jobs:
           export FLET_BUILD_DESKTOP=0
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Xmx2048m"
           
-          # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Принудительно передаем --python-version 3.11,
-          # чтобы заблокировать скачивание экспериментального Python 3.14!
-          flet build apk --yes --python-version 3.11
+          # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Передаем официально поддерживаемую стабильную --python-version 3.12,
+          # чтобы полностью заблокировать скачивание экспериментального Python 3.14!
+          flet build apk --yes --python-version 3.12
