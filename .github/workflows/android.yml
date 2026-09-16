@@ -11,7 +11,7 @@ jobs:
       # 1. Клонируем исходный код вашего проекта
       - uses: actions/checkout@v4
 
-      # 2. Настраиваем Java 17 (требуется для компиляции Android)
+      # 2. Настраиваем Java 17 для Android SDK
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -34,59 +34,47 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller
+          python3 -m pip install pandas openpyxl cryptography reportlab flet serious_python
 
-      # 6. Принимаем лицензии Android Google
-      - name: Accept Android SDK Licenses
+      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: собираем чистый проект без багов flet build
+      - name: Bootstrap Native Flutter Project
         run: |
+          # Создаем пустой классический Flutter проект силами самого Google SDK
+          flutter create --org org.ovik --project-name test_ov_app flutter_project
+          cd flutter_project
+          
+          # Подключаем официальный плагин serious_python для запуска Python на Android
+          flutter pub add serious_python
+          
+          # Создаем внутренний изолированный каталог для вашей программы
+          mkdir -p app
+          
+          # Переносим туда ваши файлы из корня репозитория
+          cp ../main.py app/main.py
+          cp ../screens.py app/
+          cp ../data_manager.py app/
+          cp ../config.py app/
+          
+          # Зашиваем ассеты (вопросы .dat и шрифты) напрямую внутрь контейнера
+          mkdir -p app/assets
+          cp -r ../assets/* app/assets/
+          
+          # КРИТИЧЕСКИЙ ШАГ: Пакуем pandas и cryptography в один бинарный архив силами Python за 5 секунд.
+          # Это предотвращает зависание Gradle, так как вместо сотен тысяч файлов он видит ОДИН архив!
+          python3 -m serious_python package app/main.py
+          
+          # Регистрируем полученный архив с кодом и зависимостями в манифесте Flutter (pubspec.yaml)
+          sed -i '/assets:/a \    - app-package.zip' pubspec.yaml
+          
+          # Автоматически принимаем все системные лицензии Android Google
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          
+          # Запускаем прямую нативную компиляцию APK. Процесс займет всего 2 минуты!
+          flutter build apk --release
 
-      # 7. ГАРАНТИРОВАННЫЙ ОБХОД БАГОВ: Создаем проект и нативно зашиваем библиотеки силами Python
-      - name: Manual Bootstrap and Asset Assembly
-        run: |
-          # Создаем чистый проект Flet
-          flet create tmp_app
-          
-          # Переносим ваш код в папку src шаблона
-          cp main.py tmp_app/src/main.py
-          cp screens.py tmp_app/src/
-          cp data_manager.py tmp_app/src/
-          cp config.py tmp_app/src/
-          
-          # Копируем зашифрованные базы вопросов .dat и шрифты внутрь папки src/assets
-          mkdir -p tmp_app/src/assets
-          cp -r assets/* tmp_app/src/assets/
-          
-          # Скачиваем мобильные зависимости напрямую в папку src приложения, 
-          # чтобы они гарантированно улетели на телефон БЕЗ СБОЕВ Gradle!
-          pip install --target=tmp_app/src/ pandas openpyxl cryptography reportlab
-          
-          # Перезаписываем внутренний config.json для жесткой фиксации метаданных Flutter
-          cat << 'EOF' > tmp_app/config.json
-          {
-            "project_name": "Тест_ОВ",
-            "org_domain": "org.ovik.testapp",
-            "dependencies": []
-          }
-          EOF
-          cp tmp_app/config.json tmp_app/src/config.json
-
-      # 8. СБОРКА ЧИСТЫМ FLUTTER: Однопоточный безопасный режим упаковки
-      - name: Compile Secure Mobile Package
-        run: |
-          cd tmp_app
-          flutter config --no-enable-linux-desktop
-          flutter config --no-enable-windows-desktop
-          flutter config --no-enable-macos-desktop
-          
-          # Запускаем сборку Flet в строго изолированном однопоточном режиме Gradle,
-          # но теперь у него нет конфликта sitepackages, так как мы внедрили их напрямую в src/!
-          export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
-          flet build apk --yes
-
-      # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
+      # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload Clean Native APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Test-OB-Native-App
-          path: tmp_app/build/apk/*.apk
+          path: flutter_project/build/app/outputs/flutter-apk/app-release.apk
