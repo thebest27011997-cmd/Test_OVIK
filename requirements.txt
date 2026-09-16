@@ -3,3 +3,4 @@ openpyxl
 cryptography
 reportlab
 certifi
+flet
