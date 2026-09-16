@@ -7,5 +7,6 @@
     "cryptography",
     "reportlab"
     "certifi"
+    "flet"
   ]
 }
