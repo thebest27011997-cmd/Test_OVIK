@@ -8,10 +8,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1. Клонируем исходный код вашего проекта (main.py, screens.py, ассеты)
+      # 1. Клонируем исходный код вашего проекта
       - uses: actions/checkout@v4
 
-      # 2. Настраиваем Java 17 (критически важно для компиляции Android)
+      # 2. Настраиваем Java 17 (требуется для компиляции Android)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -30,11 +30,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем зависимости на сервер сборки (включая Linux утилиты)
-      - name: Install Python & Linux Dependencies
+      # 5. Устанавливаем зависимости на сервер сборки
+      - name: Install Python Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev ninja-build
           python3 -m pip install --upgrade pip
           python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller
 
@@ -43,82 +41,50 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 7. СБОРКА И ИНЖЕКТИРОВАНИЕ: Создаем изолированный проект и прописываем жесткие требования
-      - name: Bootstrap Native Flutter Project and Inject Python Code
+      # 7. ГАРАНТИРОВАННЫЙ ОБХОД БАГОВ: Создаем проект и нативно зашиваем библиотеки силами Python
+      - name: Manual Bootstrap and Asset Assembly
         run: |
-          # Создаем чистый эталонный проект Flet
+          # Создаем чистый проект Flet
           flet create tmp_app
           
-          # Копируем файлы в КОРЕНЬ проекта
-          cp main.py tmp_app/main.py
-          cp screens.py tmp_app/
-          cp data_manager.py tmp_app/
-          cp config.py tmp_app/
-          
-          # Дублируем файлы в папку SRC
+          # Переносим ваш код в папку src шаблона
           cp main.py tmp_app/src/main.py
           cp screens.py tmp_app/src/
           cp data_manager.py tmp_app/src/
           cp config.py tmp_app/src/
           
-          # ГЕНЕРИРУЕМ PYPROJECT.TOML СТРОГО В КОРНЕ ПАПКИ СБОРКИ:
-          # Это заставит flet-cli принудительно вшить pandas и cryptography внутрь самого APK!
-          cat << 'EOF' > tmp_app/pyproject.toml
-          [project]
-          name = "test-ovik-app"
-          version = "1.0.0"
-          dependencies = [
-              "pandas",
-              "openpyxl",
-              "cryptography",
-              "reportlab"
-          ]
-          EOF
-          
-          # На всякий случай дублируем стандартный requirements.txt во все папки
-          cat << 'EOF' > tmp_app/requirements.txt
-          pandas
-          openpyxl
-          cryptography
-          reportlab
-          EOF
-          cp tmp_app/requirements.txt tmp_app/src/requirements.txt
-          
-          # Копируем зашифрованные базы вопросов .dat и шрифты во все структуры ассетов
-          mkdir -p tmp_app/assets
-          cp -r assets/* tmp_app/assets/
+          # Копируем зашифрованные базы вопросов .dat и шрифты внутрь папки src/assets
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
-          # Перезаписываем config.json во всех каталогах для подстраховки метаданных Flutter
+          # Скачиваем мобильные зависимости напрямую в папку src приложения, 
+          # чтобы они гарантированно улетели на телефон БЕЗ СБОЕВ Gradle!
+          pip install --target=tmp_app/src/ pandas openpyxl cryptography reportlab
+          
+          # Перезаписываем внутренний config.json для жесткой фиксации метаданных Flutter
           cat << 'EOF' > tmp_app/config.json
           {
             "project_name": "Тест_ОВ",
             "org_domain": "org.ovik.testapp",
-            "dependencies": [
-              "pandas",
-              "openpyxl",
-              "cryptography",
-              "reportlab"
-            ]
+            "dependencies": []
           }
           EOF
           cp tmp_app/config.json tmp_app/src/config.json
-          
-          # Переходим в папку проекта
+
+      # 8. СБОРКА ЧИСТЫМ FLUTTER: Однопоточный безопасный режим упаковки
+      - name: Compile Secure Mobile Package
+        run: |
           cd tmp_app
-          
-          # Отключаем десктопные платформы во Flutter, фокусируемся только на мобильном Android
           flutter config --no-enable-linux-desktop
           flutter config --no-enable-windows-desktop
           flutter config --no-enable-macos-desktop
           
-          # Включаем стандартный многопоточный скоростной режим Gradle! 
-          # Теперь, когда Си-компиляция pycryptodome убрана, сборка уложится в 4-5 минут
-          export GRADLE_OPTS="-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true"
-          flet build apk --yes --python-version 3.12
+          # Запускаем сборку Flet в строго изолированном однопоточном режиме Gradle,
+          # но теперь у него нет конфликта sitepackages, так как мы внедрили их напрямую в src/!
+          export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
+          flet build apk --yes
 
-      # 8. Выгружаем готовый рабочий .apk в артефакты репозитория
+      # 9. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload Clean Native APK Artifact
         uses: actions/upload-artifact@v4
         with:
