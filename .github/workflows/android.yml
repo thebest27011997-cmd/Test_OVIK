@@ -30,13 +30,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем базовые зависимости (включая pyinstaller)
+      # 5. Устанавливаем базовые зависимости
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pandas openpyxl cryptography reportlab flet pyinstaller
+          python3 -m pip install pandas openpyxl cryptography reportlab flet
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Оптимизированная сборка без багов путей
+      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Сборка с гарантированной ручной упаковкой zip
       - name: Bootstrap Native Flutter Project
         run: |
           # Создаем пустой классический Flutter проект силами самого Google SDK
@@ -46,7 +46,7 @@ jobs:
           # Нативно подключаем официальный плагин serious_python прямо из реестра Flutter
           flutter pub add serious_python
           
-          # Вызываем SeriousPython.run() БЕЗ АРГУМЕНТОВ по стандарту новых версий плагина
+          # Полностью перезаписываем lib/main.dart кристально чистым стартером
           cat << 'EOF' > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:serious_python/serious_python.dart';
@@ -57,10 +57,8 @@ jobs:
           }
           EOF
           
-          # Создаем внутренний изолированный каталог для вашей программы
+          # Создаем внутреннюю структуру папок программы
           mkdir -p app
-          
-          # Переносим туда ваши файлы из корня репозитория
           cp ../main.py app/main.py
           cp ../screens.py app/
           cp ../data_manager.py app/
@@ -70,18 +68,15 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # Пакуем pandas и cryptography в один бинарный архив силами встроенного модуля flet pack
-          flet pack app/main.py
+          # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Упаковываем весь код и ассеты в app-package.zip нативно через утилиту zip,
+          # полностью исключая баги путей и логики flet pack!
+          cd app
+          zip -r ../app-package.zip ./*
+          cd ..
           
-          # Переименовываем архив под стандарт серьезного питона
-          if [ -f app.zip ]; then mv app.zip app-package.zip; fi
-          
-          # Дублируем архив во все возможные структуры ассетов для 100% линковки движком Flutter
-          if [ -f app-package.zip ]; then
-            cp app-package.zip .
-            mkdir -p assets
-            cp app-package.zip assets/
-          fi
+          # Дублируем архив в подпапку assets для 100% прохождения валидации Flutter
+          mkdir -p assets
+          cp app-package.zip assets/
           
           # Полностью перезаписываем pubspec.yaml эталонной разметкой под новый плагин
           cat << 'EOF' > pubspec.yaml
@@ -113,10 +108,10 @@ jobs:
           # Автоматически принимаем все системные лицензии Android Google
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           
-          # ШАГ ОПТИМИЗАЦИИ ПУТИ: Извлекаем чистую строку пути без скобок и кавычек через индекс [0]
+          # Вычисляем точный текстовый путь к папке библиотек сервера и передаем её плагину serious_python
           PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])")
           export SERIOUS_PYTHON_SITE_PACKAGES="$PYTHON_SITE_PACKAGES"
-          echo "Оптимизированный путь к зависимостям успешно экспортирован: $SERIOUS_PYTHON_SITE_PACKAGES"
+          echo "Путь к зависимостям успешно экспортирован: $SERIOUS_PYTHON_SITE_PACKAGES"
           
           # Отключаем демоны и принудительно изолируем сборку в один поток во избежание зависаний
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.configureondemand=false"
