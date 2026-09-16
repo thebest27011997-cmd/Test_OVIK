@@ -43,7 +43,7 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 7. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Дублируем файлы во все папки сборщика для 100% видимости
+      # 7. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Сборка в изолированном каталоге с принудительной очисткой кэша Gradle
       - name: Bootstrap Native Flutter Project and Inject Python Code
         run: |
           # Создаем чистый эталонный проект Flet
@@ -74,7 +74,7 @@ jobs:
           ]
           EOF
           
-          #标Requirements.txt во все рабочие папки
+          # Прописываем Requirements.txt во все рабочие папки
           cat << 'EOF' > tmp_app/requirements.txt
           pandas
           openpyxl
@@ -107,12 +107,17 @@ jobs:
           # Переходим в папку проекта
           cd tmp_app
           
+          # ИСПРАВЛЕНИЕ: Тотальная очистка кэша Flutter и Gradle перед сборкой для исключения конфликтов потоков
+          flutter clean
+          
           # Отключаем десктопные платформы во Flutter
           flutter config --no-enable-linux-desktop
           flutter config --no-enable-windows-desktop
           flutter config --no-enable-macos-desktop
           
-          # Запускаем сборку без флага версии Python, чтобы flet-cli нативно использовал встроенный обработчик main:app
+          # Запускаем сборку. Добавляем флаг --no-daemon через системные переменные Gradle, 
+          # чтобы процессы не блокировали файлы fileHashes.bin в памяти сервера
+          export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
           flet build apk --yes
 
       # 8. Выгружаем готовый рабочий .apk в артефакты репозитория
