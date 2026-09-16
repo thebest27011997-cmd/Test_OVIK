@@ -312,7 +312,7 @@ class AppScreens:
         self.page.add(buttons_row)
         self.page.update()
 
-    def finish_test(self):
+       def finish_test(self):
         self.timer_active = False
         
         self.state["correct_count"] = 0
@@ -333,12 +333,16 @@ class AppScreens:
         if config.settings["mode"] == "контрольные вопросы" and self.state["correct_count"] < config.settings["passing_score"]:
             status = "Не пройден"
 
-        try:
-            os.chdir(self.page.user_data_dir)
-        except Exception:
-            pass
-
-        generate_pdf_report_flet(self.state["user_name"], self.state["correct_count"], len(self.state["questions"]), status, self.state["history"])
+        # ИСПРАВЛЕНИЕ ПРАВ ДОСТУПА: Вместо os.chdir передаем безопасный путь напрямую в функцию генератора PDF
+        target_directory = str(self.page.user_data_dir)
+        generate_pdf_report_flet(
+            self.state["user_name"], 
+            self.state["correct_count"], 
+            len(self.state["questions"]), 
+            status, 
+            self.state["history"],
+            output_dir=target_directory
+        )
         
         self.page.clean()
         self.page.add(ft.Column([
@@ -346,72 +350,7 @@ class AppScreens:
             ft.Text(f"Сотрудник: {self.state['user_name']}"),
             ft.Text(f"Результат: {self.state['correct_count']} из {len(self.state['questions'])}"),
             ft.Text(f"Статус: {status.upper()}", size=16, weight="bold", color="green" if status == "Пройден" else "red"),
-            ft.Text(f"Отчет сохранен по адресу: {self.page.user_data_dir}", size=10, italic=True),
+            ft.Text(f"Отчет сохранен по адресу: {target_directory}", size=10, italic=True),
             ft.ElevatedButton("В главное меню", on_click=lambda e: self.render_login_screen(), width=200)
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER))
-        self.page.update()
-
-    def render_admin_screen(self):
-        self.page.clean()
-        self.page.vertical_alignment = ft.MainAxisAlignment.START
-        self.page.horizontal_alignment = ft.CrossAxisAlignment.START
-        
-        self.page.add(ft.Text("Панель администратора ОВиК", size=20, weight="bold", color="bluegrey800"))
-        
-        num_q_field = ft.TextField(label="Количество вопросов в тесте", value=str(config.settings["num_questions"]), width=300)
-        pass_score_field = ft.TextField(label="Правильных ответов для зачета", value=str(config.settings["passing_score"]), width=300)
-        time_limit_field = ft.TextField(label="Время на тест (минуты)", value=str(config.settings["time_limit_minutes"]), width=300)
-        
-        self.page.add(ft.Text("Настройки параметров теста:", weight="bold"))
-        self.page.add(num_q_field, pass_score_field, time_limit_field)
-        
-        self.page.add(ft.Container(height=10))
-        self.page.add(ft.Text("Выберите источники (базы нормативных документов):", weight="bold"))
-        
-        source_checkboxes = {}
-        checkbox_container = ft.Column(spacing=5)
-        
-        available_files = [
-            "Постановление Правительства РФ от 16.02.2008 N 87 О составе разделов проектной документации и требованиях к их содержанию.dat",
-            "СП 7.13130.2013 Отопление, вентиляция и кондиционирование. Требования пожарной безопасности.dat",
-            "СП 50.13330.2024 Тепловая защита зданий.dat",
-            "СП 60.13330.2020 Отопление, вентиляция и кондиционирование воздуха.dat",
-            "СП 73.13330.2016 Внутренние санитарно-технические системы зданий.dat",
-            "СП 124.13330.2012 Тепловые сети.dat",
-            "СП 246.1325800.2023 Положение об авторском надзоре при строительстве, реконструкции и капитальном ремонте объектов капитального строительства.dat",
-            "СП 510.1325800.2022 Тепловые пункты и системы внутреннего теплоснабжения.dat",
-            "Федеральный закон 384.dat"
-        ]
-        
-        for file_name in available_files:
-            clean_display_name = file_name
-            if file_name.lower().endswith(".dat"):
-                clean_display_name = file_name[:-4]
-                
-            if not config.SELECTED_SOURCES:
-                is_checked = True
-            else:
-                is_checked = (file_name in config.SELECTED_SOURCES)
-                
-            cb = ft.Checkbox(label=clean_display_name, value=is_checked)
-            source_checkboxes[file_name] = cb
-            checkbox_container.controls.append(cb)
-            
-        self.page.add(checkbox_container)
-        self.page.add(ft.Container(height=15))
-        
-        def save_admin_settings(e):
-            try:
-                config.settings["num_questions"] = int(num_q_field.value)
-                config.settings["passing_score"] = int(pass_score_field.value)
-                config.settings["time_limit_minutes"] = int(time_limit_field.value)
-                
-                selected = [file_name for file_name, cb in source_checkboxes.items() if cb.value]
-                config.SELECTED_SOURCES = selected
-                
-                self.render_login_screen()
-            except ValueError:
-                self.show_snack("Параметры лимитов должны быть числами!")
-
-        self.page.add(ft.ElevatedButton("Сохранить конфигурацию и выйти", on_click=save_admin_settings, bgcolor="blue", color="white", width=350, height=45))
         self.page.update()
