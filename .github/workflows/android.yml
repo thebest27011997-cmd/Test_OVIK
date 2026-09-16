@@ -30,11 +30,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем зависимости на сервер сборки
+      # 5. Устанавливаем базовые зависимости (из списка убран внешний serious_python)
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pandas openpyxl cryptography reportlab flet serious_python
+          python3 -m pip install pandas openpyxl cryptography reportlab flet
 
       # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: собираем чистый проект без багов flet build
       - name: Bootstrap Native Flutter Project
@@ -43,7 +43,7 @@ jobs:
           flutter create --org org.ovik --project-name test_ov_app flutter_project
           cd flutter_project
           
-          # Подключаем официальный плагин serious_python для запуска Python на Android
+          # Нативно подключаем официальный плагин serious_python прямо из реестра Flutter (pub.dev)
           flutter pub add serious_python
           
           # Создаем внутренний изолированный каталог для вашей программы
@@ -59,9 +59,13 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # КРИТИЧЕСКИЙ ШАГ: Пакуем pandas и cryptography в один бинарный архив силами Python за 5 секунд.
+          # КРИТИЧЕСКИЙ ШАГ: Пакуем pandas и cryptography в один бинарный архив силами встроенного модуля flet pack.
           # Это предотвращает зависание Gradle, так как вместо сотен тысяч файлов он видит ОДИН архив!
-          python3 -m serious_python package app/main.py
+          flet pack app/main.py
+          
+          # Переименовываем архив под стандарт серьезного питона, если flet pack назвал его иначе
+          if [ -f app.zip ]; then mv app.zip app-package.zip; fi
+          if [ -f app-package.zip ]; then cp app-package.zip .; fi
           
           # Регистрируем полученный архив с кодом и зависимостями в манифесте Flutter (pubspec.yaml)
           sed -i '/assets:/a \    - app-package.zip' pubspec.yaml
