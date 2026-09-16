@@ -30,20 +30,20 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем зависимости на сервер сборки
+      # 5. Устанавливаем зависимости на сервер сборки (убран ошибочный serious_python)
       - name: Install Python & Linux Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev ninja-build
           python3 -m pip install --upgrade pip
-          python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller serious_python
+          python3 -m pip install flet pandas openpyxl cryptography reportlab pyinstaller
 
       # 6. Принимаем лицензии Android
       - name: Accept Android SDK Licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 7. ШАГ ОПТИМИЗАЦИИ ВРЕМЕНИ: Собираем Python-окружение ЗАРАНЕЕ силами python-скрипта (занимает 30 секунд вместо 10 минут)
+      # 7. ОПТИМИЗАЦИЯ ВРЕМЕНИ: Собираем Python-окружение ЗАРАНЕЕ силами flet pack (занимает 30 секунд)
       - name: Pre-compile Python Environment
         run: |
           # Создаем чистый проект Flet
@@ -90,11 +90,11 @@ jobs:
           EOF
           cp tmp_app/config.json tmp_app/src/config.json
           
-          # Нативно собираем zip-контейнер Python. Это разгрузит Gradle!
+          # ИСПРАВЛЕНИЕ: Используем официальный упаковщик flet pack для сжатия контейнера
           cd tmp_app
-          python3 -m serious_python package src/main.py
+          flet pack src/main.py
 
-      # 8. СВЕРХБЫСТРЫЙ ФИНАЛ: Запускаем Gradle в стандартном параллельном режиме (сборка займет 2-3 минуты)
+      # 8. СВЕРХБЫСТРЫЙ ФИНАЛ: Запускаем компиляцию APK
       - name: Build Android APK Package
         run: |
           cd tmp_app
