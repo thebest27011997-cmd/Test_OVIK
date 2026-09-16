@@ -43,7 +43,7 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 7. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Сборка в изолированном каталоге с принудительной очисткой кэша Gradle
+      # 7. НА ТИВНЫЙ МОНТАЖ ПРИЛОЖЕНИЯ: Сборка в изолированном каталоге с однопоточным Gradle
       - name: Bootstrap Native Flutter Project and Inject Python Code
         run: |
           # Создаем чистый эталонный проект Flet
@@ -106,9 +106,6 @@ jobs:
           
           # Переходим в папку проекта
           cd tmp_app
-          
-          # ИСПРАВЛЕНИЕ: Тотальная очистка кэша Flutter и Gradle перед сборкой для исключения конфликтов потоков
-          flutter clean
           
           # Отключаем десктопные платформы во Flutter
           flutter config --no-enable-linux-desktop
