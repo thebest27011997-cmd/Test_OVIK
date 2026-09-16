@@ -18,7 +18,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Разворачиваем стабильный Python 3.11 на сервере (Идеальная версия под мобильный pandas)
+      # 3. Разворачиваем стабильный Python 3.11 на сервере
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -35,7 +35,7 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 6. СБОРКА: Компилируем приложение с полной фиксацией всех скрытых зависимостей
+      # 6. СБОРКА: Компилируем приложение с явным включением библиотеки flet в тело APK
       - name: Build Android APK Package
         run: |
           # Создаем чистый эталонный проект Flet
@@ -58,14 +58,15 @@ jobs:
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
-          # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Добавляем certifi и openpyxl в манифест. 
-          # Теперь flet build apk намертво зашьет пакет сертификатов безопасности внутрь APK,
-          # и библиотека cryptography запустится без вылетов!
+          # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Добавляем flet в манифест проекта. 
+          # Это заставит flet build apk намертво зашить все внутренние python-компоненты flet в пакет,
+          # полностью устраняя ошибку ModuleNotFoundError!
           cat << 'EOF' > tmp_app/pyproject.toml
           [project]
           name = "test-ovik-app"
           version = "1.0.0"
           dependencies = [
+              "flet==1.0.0",
               "pandas",
               "openpyxl",
               "cryptography",
@@ -78,7 +79,7 @@ jobs:
           # Переходим в подготовленный каталог
           cd tmp_app
           
-          # Оптимизация памяти сервера
+          # Оптимизация памяти сервера и отключение лишних платформ
           export FLET_BUILD_DESKTOP=0
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Xmx2048m"
           
