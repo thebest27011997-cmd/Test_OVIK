@@ -36,7 +36,7 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install pandas openpyxl cryptography reportlab flet pyinstaller
 
-      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Сборка с очисткой экспериментального кода Dart
+      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Сборка с обновленным синтаксисом SeriousPython
       - name: Bootstrap Native Flutter Project
         run: |
           # Создаем пустой классический Flutter проект силами самого Google SDK
@@ -46,15 +46,14 @@ jobs:
           # Нативно подключаем официальный плагин serious_python прямо из реестра Flutter
           flutter pub add serious_python
           
-          # ИСПРАВЛЕНИЕ БАГА ШАБЛОНА DART: Полностью перезаписываем lib/main.dart 
-          # кристально чистым стартером без экспериментального синтаксиса 'dot-shorthands'
+          # ИСПРАВЛЕНИЕ СИНТАКСИСА: Используем именованный параметр assetPath по стандарту serious_python 4.7.0
           cat << 'EOF' > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:serious_python/serious_python.dart';
 
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run("app/main.py");
+            SeriousPython.run(assetPath: "app/main.py");
           }
           EOF
           
@@ -108,7 +107,7 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           
           # Вычисляем точный путь к папке библиотек сервера и передаем её плагину serious_python
-          PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])")
+          PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages())")
           export SERIOUS_PYTHON_SITE_PACKAGES="$PYTHON_SITE_PACKAGES"
           echo "Путь к зависимостям успешно экспортирован: $SERIOUS_PYTHON_SITE_PACKAGES"
           
