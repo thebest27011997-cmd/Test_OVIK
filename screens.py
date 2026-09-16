@@ -8,14 +8,7 @@ import hashlib
 import pandas as pd
 import flet as ft
 
-# Официальный стандарт импорта для современных версий Flet:
-from flet import (
-    Column, Row, Container, Text, TextField, ElevatedButton, 
-    TextButton, RadioGroup, Radio, Checkbox, SnackBar, AlertDialog,
-    MainAxisAlignment, CrossAxisAlignment
-)
-
-# Нативный кроссплатформенный модуль cryptography (работает без Си-компиляции в APK)
+# Переключаемся на кроссплатформенный модуль cryptography (работает без Си-компиляции в APK)
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
@@ -37,7 +30,7 @@ def local_decrypt_and_load_questions(page: ft.Page):
         "СП 73.13330.2016 Внутренние санитарно-технические системы зданий.dat",
         "СП 124.13330.2012 Тепловые сети.dat",
         "СП 246.1325800.2023 Положение об авторском надзоре при строительстве, реконструкции и капитальном ремонте объектов капитального строительства.dat",
-        "СП 510.1325800.2022 Тепловые пункты и системы внутреннего теплоснабжения.dat",
+        "СП 510.1325800.2022 Тепловые пункты и systems внутреннего теплоснабжения.dat",
         "Федеральный закон 384.dat"
     ]
 
@@ -108,7 +101,7 @@ class AppScreens:
         self.timer_thread = None
 
     def show_snack(self, text):
-        self.page.snack_bar = SnackBar(Text(text), bgcolor="redaccent")
+        self.page.snack_bar = ft.SnackBar(ft.Text(text), bgcolor="redaccent")
         self.page.snack_bar.open = True
         self.page.update()
 # screens.py — ЧАСТЬ 2
@@ -117,13 +110,13 @@ class AppScreens:
         self.timer_active = False
         self.page.clean()
         
-        self.page.vertical_alignment = "center"
-        self.page.horizontal_alignment = "center"
+        self.page.vertical_alignment = ft.MainAxisAlignment.CENTER
+        self.page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
         
-        name_input = TextField(label="Фамилия и Инициалы", width=350, on_submit=lambda e: login_click(None))
-        mode_radio = RadioGroup(content=Column([
-            Radio(value="контрольные вопросы", label="Контрольные вопросы"),
-            Radio(value="обучение", label="Обучение")
+        name_input = ft.TextField(label="Фамилия и Инициалы", width=350, on_submit=lambda e: login_click(None))
+        mode_radio = ft.RadioGroup(content=ft.Column([
+            ft.Radio(value="контрольные вопросы", label="Контрольные вопросы"),
+            ft.Radio(value="обучение", label="Обучение")
         ]), value=config.settings["mode"])
 
         def login_click(e):
@@ -139,7 +132,6 @@ class AppScreens:
             else:
                 pool = local_decrypt_and_load_questions(self.page)
                 if not pool:
-                    # Заглушка безопасности, чтобы приложение не вылетало, если папка пуста
                     pool = [{"text": "Тестовый вопрос: Выберите Верно", "type": "один", "options": ["Верно", "Неверно"], "correct": "Верно", "source": "Система"}]
                 
                 if config.settings["mode"] == "обучение":
@@ -163,16 +155,16 @@ class AppScreens:
                 self.render_question_screen()
 
         self.page.add(
-            Column([
-                Text("Тестирование ОВ", size=26, weight="bold", color="blue800"),
-                Container(height=10), 
+            ft.Column([
+                ft.Text("Тестирование ОВ", size=26, weight="bold", color="blue800"),
+                ft.Container(height=10), 
                 name_input, 
-                Text("Выберите режим тестирования:", weight="bold"), 
+                ft.Text("Выберите режим тестирования:", weight="bold"), 
                 mode_radio,
-                ElevatedButton("Войти", on_click=login_click, bgcolor="green", color="white", width=200, height=45)
+                ft.ElevatedButton("Войти", on_click=login_click, bgcolor="green", color="white", width=200, height=45)
             ], 
-            alignment=MainAxisAlignment.CENTER, 
-            horizontal_alignment=CrossAxisAlignment.CENTER)
+            alignment=ft.MainAxisAlignment.CENTER, 
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER)
         )
         self.page.update()
 
@@ -201,18 +193,18 @@ class AppScreens:
     def render_question_screen(self):
         self.page.clean()
         
-        self.page.vertical_alignment = "start"
-        self.page.horizontal_alignment = "stretch"
+        self.page.vertical_alignment = ft.MainAxisAlignment.START
+        self.page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
         
         idx = self.state["current_idx"]
         q = self.state["questions"][idx]
         
-        info_text = Text(f"Сотрудник: {self.state['user_name']} | Режим: {config.settings['mode'].upper()}", size=12, italic=True)
+        info_text = ft.Text(f"Сотрудник: {self.state['user_name']} | Режим: {config.settings['mode'].upper()}", size=12, italic=True)
         
         mins, secs = divmod(self.time_left_seconds, 60)
         timer_color = "red800" if self.time_left_seconds <= 60 else "bluegrey700"
         
-        self.lbl_timer = Text(
+        self.lbl_timer = ft.Text(
             value=f"Осталось времени: {mins:02d}:{secs:02d}", 
             size=14, 
             weight="bold", 
@@ -220,22 +212,22 @@ class AppScreens:
             visible=(config.settings["mode"] == "контрольные вопросы")
         )
         
-        self.page.add(Row([info_text, self.lbl_timer], alignment=MainAxisAlignment.SPACE_BETWEEN))
-        self.page.add(Text(f"Вопрос {idx + 1}:\n{q['text']}", size=16, weight="bold"))
+        self.page.add(ft.Row([info_text, self.lbl_timer], alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
+        self.page.add(ft.Text(f"Вопрос {idx + 1}:\n{q['text']}", size=16, weight="bold"))
 
-        input_container = Column()
-        checkboxes, radio_group = {}, RadioGroup(content=Column())
-        text_field = TextField(label="Введите ваш ответ (без учета регистра)", width=450)
+        input_container = ft.Column()
+        checkboxes, radio_group = {}, ft.RadioGroup(content=ft.Column())
+        text_field = ft.TextField(label="Введите ваш ответ (без учета регистра)", width=450)
 
         if "один" in q["type"]:
-            for opt in q["options"]: radio_group.content.controls.append(Radio(value=opt, label=opt))
+            for opt in q["options"]: radio_group.content.controls.append(ft.Radio(value=opt, label=opt))
             radio_group.value = self.state["saved_replies"].get(idx, "")
             input_container.controls.append(radio_group)
         elif "несколько" in q["type"]:
-            self.page.add(Text("выберите несколько вариантов", size=12, color="orange800", italic=True))
+            self.page.add(ft.Text("выберите несколько вариантов", size=12, color="orange800", italic=True))
             saved_arr = self.state["saved_replies"].get(idx, "").split("; ")
             for opt in q["options"]:
-                cb = Checkbox(label=opt, value=(opt in saved_arr))
+                cb = ft.Checkbox(label=opt, value=(opt in saved_arr))
                 checkboxes[opt] = cb
                 input_container.controls.append(cb)
         elif "текст" in q["type"]:
@@ -244,9 +236,9 @@ class AppScreens:
 
         self.page.add(input_container)
 
-        source_ui = Text(f"Источник: {q['source'] if q['source'] else 'Не указан'}", size=12, italic=True, color="blue800", visible=False)
+        source_ui = ft.Text(f"Источник: {q['source'] if q['source'] else 'Не указан'}", size=12, italic=True, color="blue800", visible=False)
         self.page.add(source_ui)
-        text_correct_lbl = Text("", color="green", weight="bold", visible=False)
+        text_correct_lbl = ft.Text("", color="green", weight="bold", visible=False)
         self.page.add(text_correct_lbl)
 # screens.py — ЧАСТЬ 3
 
@@ -294,14 +286,14 @@ class AppScreens:
                 confirm_dialog.open = False
                 self.page.update()
 
-            confirm_dialog = AlertDialog(
-                title=Text("Предупреждение"),
-                content=Text("Вы уверены, что хотите принудительно завершить тестирование? Все оставшиеся вопросы будут засчитаны как неверные."),
+            confirm_dialog = ft.AlertDialog(
+                title=ft.Text("Предупреждение"),
+                content=ft.Text("Вы уверены, что хотите принудительно завершить тестирование? Все оставшиеся вопросы будут засчитаны как неверные."),
                 actions=[
-                    TextButton("Да, завершить", on_click=confirm_exit, style=ft.ButtonStyle(color="red")),
-                    TextButton("Отмена", on_click=close_dialog),
+                    ft.TextButton("Да, завершить", on_click=confirm_exit, style=ft.ButtonStyle(color="red")),
+                    ft.TextButton("Отмена", on_click=close_dialog),
                 ],
-                actions_alignment=MainAxisAlignment.END,
+                actions_alignment=ft.MainAxisAlignment.END,
             )
             
             if hasattr(self.page, "open"):
@@ -311,16 +303,16 @@ class AppScreens:
                 confirm_dialog.open = True
                 self.page.update()
 
-        buttons_row = Row(wrap=True, spacing=10, alignment=MainAxisAlignment.START)
-        if idx > 0: buttons_row.controls.append(ElevatedButton("Назад", on_click=prev_click, bgcolor="grey400"))
+        buttons_row = ft.Row(wrap=True, spacing=10, alignment=ft.MainAxisAlignment.START)
+        if idx > 0: buttons_row.controls.append(ft.ElevatedButton("Назад", on_click=prev_click, bgcolor="grey400"))
         if config.settings["mode"] == "обучение":
-            buttons_row.controls.append(ElevatedButton("Показать верный ответ", on_click=show_hint_click, bgcolor="orange"))
+            buttons_row.controls.append(ft.ElevatedButton("Показать верный ответ", on_click=show_hint_click, bgcolor="orange"))
         
         buttons_row.controls.append(
-            ElevatedButton("Завершить досрочно", on_click=open_confirm_dialog, bgcolor="red", color="white")
+            ft.ElevatedButton("Завершить досрочно", on_click=open_confirm_dialog, bgcolor="red", color="white")
         )
         
-        buttons_row.controls.append(ElevatedButton("Завершить" if (idx == len(self.state["questions"]) - 1) else "Далее", on_click=next_click, bgcolor="green", color="white"))
+        buttons_row.controls.append(ft.ElevatedButton("Завершить" if (idx == len(self.state["questions"]) - 1) else "Далее", on_click=next_click, bgcolor="green", color="white"))
         
         self.page.add(buttons_row)
         self.page.update()
@@ -354,37 +346,36 @@ class AppScreens:
         generate_pdf_report_flet(self.state["user_name"], self.state["correct_count"], len(self.state["questions"]), status, self.state["history"])
         
         self.page.clean()
-        self.page.add(Column([
-            Text("Тестирование завершено!", size=22, weight="bold", color="green"),
-            Text(f"Сотрудник: {self.state['user_name']}"),
-            Text(f"Результат: {self.state['correct_count']} из {len(self.state['questions'])}"),
-            Text(f"Статус: {status.upper()}", size=16, weight="bold", color="green" if status == "Пройден" else "red"),
-            Text(f"Отчет сохранен по адресу: {self.page.user_data_dir}", size=10, italic=True),
-            ElevatedButton("В главное меню", on_click=lambda e: self.render_login_screen(), width=200)
-        ], alignment=MainAxisAlignment.CENTER, horizontal_alignment=CrossAxisAlignment.CENTER))
+        self.page.add(ft.Column([
+            ft.Text("Тестирование завершено!", size=22, weight="bold", color="green"),
+            ft.Text(f"Сотрудник: {self.state['user_name']}"),
+            ft.Text(f"Результат: {self.state['correct_count']} из {len(self.state['questions'])}"),
+            ft.Text(f"Статус: {status.upper()}", size=16, weight="bold", color="green" if status == "Пройден" else "red"),
+            ft.Text(f"Отчет сохранен по адресу: {self.page.user_data_dir}", size=10, italic=True),
+            ft.ElevatedButton("В главное меню", on_click=lambda e: self.render_login_screen(), width=200)
+        ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER))
         self.page.update()
 
     def render_admin_screen(self):
         self.page.clean()
-        self.page.vertical_alignment = "start"
-        self.page.horizontal_alignment = "start"
+        self.page.vertical_alignment = ft.MainAxisAlignment.START
+        self.page.horizontal_alignment = ft.CrossAxisAlignment.START
         
-        self.page.add(Text("Панель администратора ОВиК", size=20, weight="bold", color="bluegrey800"))
+        self.page.add(ft.Text("Панель администратора ОВиК", size=20, weight="bold", color="bluegrey800"))
         
-        num_q_field = TextField(label="Количество вопросов в тесте", value=str(config.settings["num_questions"]), width=300)
-        pass_score_field = TextField(label="Правильных ответов для зачета", value=str(config.settings["passing_score"]), width=300)
-        time_limit_field = TextField(label="Время на тест (минуты)", value=str(config.settings["time_limit_minutes"]), width=300)
+        num_q_field = ft.TextField(label="Количество вопросов в тесте", value=str(config.settings["num_questions"]), width=300)
+        pass_score_field = ft.TextField(label="Правильных ответов для зачета", value=str(config.settings["passing_score"]), width=300)
+        time_limit_field = ft.TextField(label="Время на тест (минуты)", value=str(config.settings["time_limit_minutes"]), width=300)
         
-        self.page.add(Text("Настройки параметров теста:", weight="bold"))
+        self.page.add(ft.Text("Настройки параметров теста:", weight="bold"))
         self.page.add(num_q_field, pass_score_field, time_limit_field)
         
-        self.page.add(Container(height=10))
-        self.page.add(Text("Выберите источники (базы нормативных документов):", weight="bold"))
+        self.page.add(ft.Container(height=10))
+        self.page.add(ft.Text("Выберите источники (базы нормативных документов):", weight="bold"))
         
         source_checkboxes = {}
-        checkbox_container = Column(spacing=5)
+        checkbox_container = ft.Column(spacing=5)
         
-        # Полный список доступных баз документов для мобильной админки
         available_files = [
             "Постановление Правительства РФ от 16.02.2008 N 87 О составе разделов проектной документации и требованиях к их содержанию.dat",
             "СП 7.13130.2013 Отопление, вентиляция и кондиционирование. Требования пожарной безопасности.dat",
@@ -398,7 +389,6 @@ class AppScreens:
         ]
         
         for file_name in available_files:
-            # Отрезаем расширение .dat для красивого отображения на экране
             clean_display_name = file_name
             if file_name.lower().endswith(".dat"):
                 clean_display_name = file_name[:-4]
@@ -408,12 +398,12 @@ class AppScreens:
             else:
                 is_checked = (file_name in config.SELECTED_SOURCES)
                 
-            cb = Checkbox(label=clean_display_name, value=is_checked)
+            cb = ft.Checkbox(label=clean_display_name, value=is_checked)
             source_checkboxes[file_name] = cb
             checkbox_container.controls.append(cb)
             
         self.page.add(checkbox_container)
-        self.page.add(Container(height=15))
+        self.page.add(ft.Container(height=15))
         
         def save_admin_settings(e):
             try:
@@ -428,5 +418,5 @@ class AppScreens:
             except ValueError:
                 self.show_snack("Параметры лимитов должны быть числами!")
 
-        self.page.add(ElevatedButton("Сохранить конфигурацию и退出", on_click=save_admin_settings, bgcolor="blue", color="white", width=350, height=45))
+        self.page.add(ft.ElevatedButton("Сохранить конфигурацию и выйти", on_click=save_admin_settings, bgcolor="blue", color="white", width=350, height=45))
         self.page.update()
