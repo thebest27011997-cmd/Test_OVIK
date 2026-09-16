@@ -14,6 +14,5 @@ def main(page: ft.Page):
     screens = AppScreens(page)
     screens.render_login_screen()
 
-if __name__ == "__main__":
-    # ИСПРАВЛЕНИЕ: Новый стандарт запуска во Flet 1.0.0 для исключения AttributeError
-    ft.run_app(main)
+# ДЛЯ ИСКЛЮЧЕНИЯ БУДУЩИХ ОШИБОК: Передаем управление напрямую мобильному контейнеру
+app = main
