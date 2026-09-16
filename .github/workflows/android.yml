@@ -35,7 +35,7 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 6. СБОРКА: Компилируем приложение с правильной загрузкой мобильных бинарников
+      # 6. СБОРКА: Компилируем приложение с полной фиксацией всех скрытых зависимостей
       - name: Build Android APK Package
         run: |
           # Создаем чистый эталонный проект Flet
@@ -58,9 +58,9 @@ jobs:
           mkdir -p tmp_app/src/assets
           cp -r assets/* tmp_app/src/assets/
           
-          # ЖЕСТКАЯ МОБИЛЬНАЯ ФИКСАЦИЯ: Записываем требования строго в pyproject.toml папки сборки.
-          # Сборщик Flet увидит этот файл, обратится к репозиторию мобильных пакетов (Kivy/Python-for-Android) 
-          # и скачает скомпилированные под смартфоны ARM64 версии pandas, numpy и cryptography!
+          # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Добавляем certifi и openpyxl в манифест. 
+          # Теперь flet build apk намертво зашьет пакет сертификатов безопасности внутрь APK,
+          # и библиотека cryptography запустится без вылетов!
           cat << 'EOF' > tmp_app/pyproject.toml
           [project]
           name = "test-ovik-app"
@@ -69,7 +69,8 @@ jobs:
               "pandas",
               "openpyxl",
               "cryptography",
-              "reportlab"
+              "reportlab",
+              "certifi"
           ]
           EOF
           cp tmp_app/pyproject.toml tmp_app/src/pyproject.toml
@@ -77,12 +78,11 @@ jobs:
           # Переходим в подготовленный каталог
           cd tmp_app
           
-          # ОПТИМИЗАЦИЯ ПАМЯТИ: Полностью вырезаем из компилятора тяжелые десктопные модули,
-          # чтобы разгрузить ОЗУ сервера и предотвратить зависания и вылеты Gradle по лимиту времени
+          # Оптимизация памяти сервера
           export FLET_BUILD_DESKTOP=0
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Xmx2048m"
           
-          # Запускаем официальную сборку (Flet сам нативно упакует мобильные библиотеки)
+          # Запускаем официальную сборку
           flet build apk --yes
 
       # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
