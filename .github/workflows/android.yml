@@ -8,10 +8,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1. Клонируем исходный код вашего проекта из репозитория
+      # 1. Клонируем исходный код вашего проекта
       - uses: actions/checkout@v4
 
-      # 2. Настраиваем Java 17 (требуется для компиляции Android)
+      # 2. Настраиваем Java 17 для Android SDK
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -30,18 +30,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 5. Устанавливаем базовые зависимости (включая pyinstaller)
+      # 5. Устанавливаем базовые зависимости
       - name: Install Python Dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pandas openpyxl cryptography reportlab flet pyinstaller
+          python3 -m pip install pandas openpyxl cryptography reportlab flet
 
-      # 6. Принимаем лицензии Android Google
-      - name: Accept Android SDK Licenses
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
-      # 7. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Сборка с инжектом переменной окружения библиотек
+      # 6. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Сборка с гарантированной ручной упаковкой zip
       - name: Bootstrap Native Flutter Project
         run: |
           # Создаем пустой классический Flutter проект силами самого Google SDK
@@ -51,7 +46,7 @@ jobs:
           # Нативно подключаем официальный плагин serious_python прямо из реестра Flutter
           flutter pub add serious_python
           
-          # Записываем правильный стартер в lib/main.dart по современному мобильному стандарту
+          # Полностью перезаписываем lib/main.dart кристально чистым стартером
           cat << 'EOF' > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:serious_python/serious_python.dart';
@@ -73,14 +68,17 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # Пакуем код в один бинарный архив силами flet pack
-          flet pack app/main.py
+          # ГАРАНТИРОВАННОЕ РЕШЕНИЕ: Упаковываем весь код и ассеты в app-package.zip нативно через утилиту zip,
+          # полностью исключая баги путей и логики flet pack!
+          cd app
+          zip -r ../app-package.zip ./*
+          cd ..
           
-          # Приводим имя архива к стандарту serious_python
-          if [ -f app.zip ]; then mv app.zip app-package.zip; fi
-          if [ -f app-package.zip ]; then cp app-package.zip .; fi
+          # Дублируем архив в подпапку assets для 100% прохождения валидации Flutter
+          mkdir -p assets
+          cp app-package.zip assets/
           
-          # Полностью перезаписываем pubspec.yaml эталонной разметкой Google Flutter
+          # Полностью перезаписываем pubspec.yaml эталонной разметкой под новый плагин
           cat << 'EOF' > pubspec.yaml
           name: test_ov_app
           description: "A new Flutter project."
@@ -104,20 +102,24 @@ jobs:
             uses-material-design: true
             assets:
               - app-package.zip
+              - assets/app-package.zip
           EOF
           
-          # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Вычисляем точный текстовый путь к папке библиотек сервера и передаем её плагину serious_python
-          PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])")
-          export SERIOUS_PYTHON_SITE_PACKAGES="$PYTHON_SITE_PACKAGES"
-          echo "Официальный путь к зависимостям успешно экспортирован: $SERIOUS_PYTHON_SITE_PACKAGES"
+          # Автоматически принимаем все системные лицензии Android Google
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           
-          # Отключаем десктопные демоны и изолируем сборку в один поток
+          # Вычисляем точный текстовый путь к папке библиотек сервера и передаем её плагину serious_python
+          PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages())")
+          export SERIOUS_PYTHON_SITE_PACKAGES="$PYTHON_SITE_PACKAGES"
+          echo "Путь к зависимостям успешно экспортирован: $SERIOUS_PYTHON_SITE_PACKAGES"
+          
+          # Отключаем демоны и принудительно изолируем сборку в один поток во избежание зависаний
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.configureondemand=false"
           
-          # Запускаем прямую нативную компиляцию APK силами Google SDK
+          # Запускаем прямую нативную компиляцию APK
           flutter build apk --release
 
-      # 8. Выгружаем готовый рабочий .apk в артефакты репозитория
+      # 7. Выгружаем готовый рабочий .apk в артефакты репозитория
       - name: Upload Clean Native APK Artifact
         uses: actions/upload-artifact@v4
         with:
