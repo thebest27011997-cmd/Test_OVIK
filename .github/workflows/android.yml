@@ -41,7 +41,7 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 7. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Чистая сборка без использования flet build
+      # 7. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Сборка с инжектом переменной окружения библиотек
       - name: Bootstrap Native Flutter Project
         run: |
           # Создаем пустой классический Flutter проект силами самого Google SDK
@@ -73,7 +73,7 @@ jobs:
           mkdir -p app/assets
           cp -r ../assets/* app/assets/
           
-          # Пакуем код в один бинарный архив силами flet pack (занимает 2 секунды)
+          # Пакуем код в один бинарный архив силами flet pack
           flet pack app/main.py
           
           # Приводим имя архива к стандарту serious_python
@@ -105,6 +105,11 @@ jobs:
             assets:
               - app-package.zip
           EOF
+          
+          # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Вычисляем точный текстовый путь к папке библиотек сервера и передаем её плагину serious_python
+          PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])")
+          export SERIOUS_PYTHON_SITE_PACKAGES="$PYTHON_SITE_PACKAGES"
+          echo "Официальный путь к зависимостям успешно экспортирован: $SERIOUS_PYTHON_SITE_PACKAGES"
           
           # Отключаем десктопные демоны и изолируем сборку в один поток
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.configureondemand=false"
