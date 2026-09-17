@@ -18,47 +18,103 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Разворачиваем стабильный Python 3.12 на сервере
+      # 3. Разворачиваем чистый официальный Flutter SDK от Google
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # 4. Настраиваем стабильный Python 3.12 на сервере
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # 4. Устанавливаем официальный сборочный инструмент Flet CLI
-      - name: Install Flet CLI Bundler
+      # 5. Устанавливаем базовые зависимости (включая pyinstaller)
+      - name: Install Python Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install flet==1.0.0 pyinstaller cryptography reportlab
-
-      # 5. Устанавливаем системные библиотеки Linux для успешного прохождения build hooks
-      - name: Install Linux GTK and Mesa Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev ninja-build mesa-utils
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pandas openpyxl cryptography reportlab flet pyinstaller
 
       # 6. Принимаем лицензии Android Google
       - name: Accept Android SDK Licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      # 7. ЧИСТАЯ СБОРКА: Компилируем приложение строго под мобильный Android target
-      - name: Build Android APK Package
+      # 7. НА ТИВНЫЙ МОНТАЖ ЧЕРЕЗ GOOGLE FLUTTER: Чистая сборка без использования flet build
+      - name: Bootstrap Native Flutter Project
         run: |
-          # Записываем требования строго в pyproject.toml в корне репозитория перед запуском
-          cat << 'EOF' > pyproject.toml
-          [project]
-          name = "test-ovik-app"
-          version = "1.0.0"
-          dependencies = [
-              "cryptography",
-              "reportlab"
-          ]
+          # Создаем пустой классический Flutter проект силами самого Google SDK
+          flutter create --org org.ovik --project-name test_ov_app flutter_project
+          cd flutter_project
+          
+          # Нативно подключаем официальный плагин serious_python прямо из реестра Flutter
+          flutter pub add serious_python
+          
+          # Записываем правильный стартер в lib/main.dart по современному мобильному стандарту
+          cat << 'EOF' > lib/main.dart
+          import 'package:flutter/material.dart';
+          import 'package:serious_python/serious_python.dart';
+
+          void main() {
+            WidgetsFlutterBinding.ensureInitialized();
+            SeriousPython.run();
+          }
           EOF
           
-          # Оптимизация памяти сервера и отключение десктопных модулей
-          export FLET_BUILD_DESKTOP=0
-          export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Xmx2048m"
+          # Создаем внутреннюю структуру папок программы
+          mkdir -p app
+          cp ../main.py app/main.py
+          cp ../screens.py app/
+          cp ../data_manager.py app/
+          cp ../config.py app/
           
-          # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Добавляем --target android, чтобы заблокировать 
-          # скачивание десктопных standalone-дистрибутивов и запустить чистый мобильный компилятор!
-          flet build apk --yes --python-version 3.12 --target android
+          # Зашиваем ассеты (вопросы .dat и шрифты) напрямую внутрь контейнера
+          mkdir -p app/assets
+          cp -r ../assets/* app/assets/
+          
+          # Пакуем код в один бинарный архив силами flet pack (занимает 2 секунды)
+          flet pack app/main.py
+          
+          # Приводим имя архива к стандарту serious_python
+          if [ -f app.zip ]; then mv app.zip app-package.zip; fi
+          if [ -f app-package.zip ]; then cp app-package.zip .; fi
+          
+          # Полностью перезаписываем pubspec.yaml эталонной разметкой Google Flutter
+          cat << 'EOF' > pubspec.yaml
+          name: test_ov_app
+          description: "A new Flutter project."
+          publish_to: 'none'
+          version: 1.0.0+1
+          
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+          
+          dependencies:
+            flutter:
+              sdk: flutter
+            serious_python: ^4.7.0
+          
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^3.0.0
+          
+          flutter:
+            uses-material-design: true
+            assets:
+              - app-package.zip
+          EOF
+          
+          # Отключаем десктопные демоны и изолируем сборку в один поток
+          export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.configureondemand=false"
+          
+          # Запускаем прямую нативную компиляцию APK силами Google SDK
+          flutter build apk --release
+
+      # 8. Выгружаем готовый рабочий .apk в артефакты репозитория
+      - name: Upload Clean Native APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test-OB-Native-App
+          path: flutter_project/build/app/outputs/flutter-apk/app-release.apk
